@@ -59,23 +59,23 @@ export const IncomeConfigModal: React.FC<IncomeConfigModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-black/75 backdrop-blur-xs">
       <div
         className="bg-slate-900 border border-slate-800 text-slate-100 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150"
         role="dialog"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/60">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-800 bg-slate-950/60">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 shrink-0">
               <Banknote className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="text-base font-bold text-white">
-                Definir Entradas & Renda Mensal
+            <div className="min-w-0">
+              <h3 className="text-sm sm:text-base font-bold text-white truncate">
+                Definir Entradas & Renda
               </h3>
-              <p className="text-xs text-slate-400">
-                Configure salário, comissões e extras para o mês ou ano todo
+              <p className="text-[11px] sm:text-xs text-slate-400 truncate">
+                Configure salário, comissões e extras
               </p>
             </div>
           </div>
@@ -88,7 +88,7 @@ export const IncomeConfigModal: React.FC<IncomeConfigModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 max-h-[82vh] overflow-y-auto">
           {/* 1. Salário Fixo */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs">

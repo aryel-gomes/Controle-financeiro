@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   BudgetLimit,
   CreditCard,
@@ -15,13 +15,25 @@ import {
   INITIAL_TRANSACTIONS,
 } from '../utils/sampleData';
 import { getMonthName, getMonthShortName, addMonthsToDateString } from '../utils/formatters';
+import { useAuth } from '../context/AuthContext';
+import {
+  db,
+  doc,
+  collection,
+  onSnapshot,
+  setDoc,
+  deleteDoc,
+  writeBatch,
+  handleFirestoreError,
+  OperationType,
+} from '../lib/firebase';
 
 const STORAGE_KEYS = {
-  TRANSACTIONS: 'finanplan_transactions_v1',
-  LIMITS: 'finanplan_budget_limits_v1',
-  CARDS: 'finanplan_credit_cards_v1',
-  INVESTMENTS: 'finanplan_investments_v1',
-  CONTRIBUTIONS: 'finanplan_contributions_v1',
+  TRANSACTIONS: 'finanplan_transactions_v2',
+  LIMITS: 'finanplan_budget_limits_v2',
+  CARDS: 'finanplan_credit_cards_v2',
+  INVESTMENTS: 'finanplan_investments_v2',
+  CONTRIBUTIONS: 'finanplan_contributions_v2',
 };
 
 export interface LimitAlert {
@@ -36,7 +48,9 @@ export interface LimitAlert {
   overspent: number;
 }
 
-export function useFinanceStore() {
+export function useFinanceStore(onRequireAdmin?: () => void) {
+  const { user, isAdmin } = useAuth();
+
   // Initial date: 2026-09 (current local year & month)
   const [selectedYear, setSelectedYear] = useState<number>(2026);
   const [selectedMonth, setSelectedMonth] = useState<number>(8); // 8 is September (0-indexed)
@@ -91,7 +105,13 @@ export function useFinanceStore() {
     return INITIAL_CONTRIBUTIONS;
   });
 
-  // Sync to localStorage
+  // Cloud status
+  const [isLiveConnected, setIsLiveConnected] = useState<boolean>(false);
+  const [isCloudSyncing, setIsCloudSyncing] = useState<boolean>(false);
+  const [lastCloudSync, setLastCloudSync] = useState<Date | null>(null);
+  const hasSeededRef = useRef<boolean>(false);
+
+  // Sync to localStorage as offline fallback
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
@@ -131,6 +151,178 @@ export function useFinanceStore() {
       console.error('Error saving contributions', e);
     }
   }, [contributions]);
+
+  // Seed / Push local or initial data to shared cloud database
+  const seedLocalToCloud = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      setIsCloudSyncing(true);
+      const batch = writeBatch(db);
+
+      // 1. Transactions
+      const txList = transactions.length > 0 ? transactions : INITIAL_TRANSACTIONS;
+      txList.forEach((tx) => {
+        const docRef = doc(db, 'transactions', tx.id);
+        batch.set(docRef, tx, { merge: true });
+      });
+
+      // 2. Cards
+      const cardList = creditCards.length > 0 ? creditCards : INITIAL_CREDIT_CARDS;
+      cardList.forEach((card) => {
+        const docRef = doc(db, 'cards', card.id);
+        batch.set(docRef, card, { merge: true });
+      });
+
+      // 3. Limits
+      const limitList = budgetLimits.length > 0 ? budgetLimits : INITIAL_BUDGET_LIMITS;
+      limitList.forEach((lim) => {
+        const docRef = doc(db, 'limits', lim.id);
+        batch.set(docRef, lim, { merge: true });
+      });
+
+      // 4. Investments
+      const invList = investments.length > 0 ? investments : INITIAL_INVESTMENTS;
+      invList.forEach((inv) => {
+        const docRef = doc(db, 'investments', inv.id);
+        batch.set(docRef, inv, { merge: true });
+      });
+
+      // 5. Contributions
+      const contribList = contributions.length > 0 ? contributions : INITIAL_CONTRIBUTIONS;
+      contribList.forEach((c) => {
+        const docRef = doc(db, 'contributions', c.id);
+        batch.set(docRef, c, { merge: true });
+      });
+
+      await batch.commit();
+      setLastCloudSync(new Date());
+    } catch (error) {
+      console.error('Error seeding data to Firestore:', error);
+    } finally {
+      setIsCloudSyncing(false);
+    }
+  }, [isAdmin, transactions, creditCards, budgetLimits, investments, contributions]);
+
+  // SHARED REALTIME SYNC VIA FIRESTORE onSnapshot (FOR EVERYONE: VISITORS & ADMIN)
+  useEffect(() => {
+    const unsubscribes: (() => void)[] = [];
+
+    // 1. Transactions Listener (Public Read)
+    const unsubTx = onSnapshot(
+      collection(db, 'transactions'),
+      (snapshot) => {
+        setIsLiveConnected(true);
+        if (!snapshot.empty) {
+          const items: Transaction[] = [];
+          snapshot.forEach((d) => {
+            items.push(d.data() as Transaction);
+          });
+          items.sort((a, b) => b.date.localeCompare(a.date));
+          setTransactions(items);
+          setLastCloudSync(new Date());
+        } else if (isAdmin && !hasSeededRef.current) {
+          hasSeededRef.current = true;
+          seedLocalToCloud();
+        }
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'transactions');
+      }
+    );
+    unsubscribes.push(unsubTx);
+
+    // 2. Cards Listener (Public Read)
+    const unsubCards = onSnapshot(
+      collection(db, 'cards'),
+      (snapshot) => {
+        if (!snapshot.empty) {
+          const items: CreditCard[] = [];
+          snapshot.forEach((d) => {
+            items.push(d.data() as CreditCard);
+          });
+          setCreditCards(items);
+        }
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'cards');
+      }
+    );
+    unsubscribes.push(unsubCards);
+
+    // 3. Limits Listener (Public Read)
+    const unsubLimits = onSnapshot(
+      collection(db, 'limits'),
+      (snapshot) => {
+        if (!snapshot.empty) {
+          const items: BudgetLimit[] = [];
+          snapshot.forEach((d) => {
+            items.push(d.data() as BudgetLimit);
+          });
+          setBudgetLimits(items);
+        }
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'limits');
+      }
+    );
+    unsubscribes.push(unsubLimits);
+
+    // 4. Investments Listener (Public Read)
+    const unsubInv = onSnapshot(
+      collection(db, 'investments'),
+      (snapshot) => {
+        if (!snapshot.empty) {
+          const items: InvestmentGoal[] = [];
+          snapshot.forEach((d) => {
+            items.push(d.data() as InvestmentGoal);
+          });
+          setInvestments(items);
+        }
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'investments');
+      }
+    );
+    unsubscribes.push(unsubInv);
+
+    // 5. Contributions Listener (Public Read)
+    const unsubContrib = onSnapshot(
+      collection(db, 'contributions'),
+      (snapshot) => {
+        if (!snapshot.empty) {
+          const items: InvestmentContribution[] = [];
+          snapshot.forEach((d) => {
+            items.push(d.data() as InvestmentContribution);
+          });
+          items.sort((a, b) => b.date.localeCompare(a.date));
+          setContributions(items);
+        }
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'contributions');
+      }
+    );
+    unsubscribes.push(unsubContrib);
+
+    return () => {
+      unsubscribes.forEach((unsub) => unsub());
+    };
+  }, [isAdmin, seedLocalToCloud]);
+
+  // Check admin guard
+  const checkAdminPermission = useCallback((): boolean => {
+    if (!isAdmin) {
+      if (onRequireAdmin) {
+        onRequireAdmin();
+      } else {
+        alert(
+          'Apenas o Administrador (aryelgomes59@gmail.com) pode alterar ou cadastrar informações.\n\nVocê está no modo de consulta para visualizar os dados atualizados.'
+        );
+      }
+      return false;
+    }
+    return true;
+  }, [isAdmin, onRequireAdmin]);
 
   // Month navigation
   const goToPreviousMonth = useCallback(() => {
@@ -300,21 +492,21 @@ export function useFinanceStore() {
       let salaryIncome = 0;
       let commissionIncome = 0;
       let otherIncome = 0;
-      let totalExpense = 0;
+
       let creditCardExpense = 0;
       let fixedDebtExpense = 0;
       let generalExpense = 0;
+      let totalExpense = 0;
+
       let paidExpense = 0;
       let pendingExpense = 0;
 
       filtered.forEach((tx) => {
         if (tx.type === 'income') {
-          totalIncome += tx.amount;
           if (tx.category === 'salary') salaryIncome += tx.amount;
           else if (tx.category === 'commission') commissionIncome += tx.amount;
           else otherIncome += tx.amount;
         } else {
-          totalExpense += tx.amount;
           if (tx.category === 'credit_card') creditCardExpense += tx.amount;
           else if (tx.category === 'fixed_debt') fixedDebtExpense += tx.amount;
           else generalExpense += tx.amount;
@@ -324,6 +516,8 @@ export function useFinanceStore() {
         }
       });
 
+      totalIncome = salaryIncome + commissionIncome + otherIncome;
+      totalExpense = creditCardExpense + fixedDebtExpense + generalExpense;
       const netBalance = totalIncome - totalExpense;
       const savingsRate = totalIncome > 0 ? Math.max(0, (netBalance / totalIncome) * 100) : 0;
 
@@ -348,12 +542,14 @@ export function useFinanceStore() {
     return result;
   }, [selectedMonth, selectedYear, transactions]);
 
-  // Transaction mutations
+  // Transaction mutations (Protected: Admin Only)
   const addTransaction = useCallback(
-    (
+    async (
       newTx: Omit<Transaction, 'id' | 'createdAt'>,
       options?: { repeatMonthsCount?: number }
     ) => {
+      if (!checkAdminPermission()) return;
+
       const createdAt = new Date().toISOString();
       const createdList: Transaction[] = [];
 
@@ -377,7 +573,6 @@ export function useFinanceStore() {
             currentInstallment: i,
             totalInstallments: total,
             installmentGroupId,
-            // Only the initial installment keeps user's isPaid flag; subsequent future installments are pending
             isPaid: i === startInstallment ? newTx.isPaid : false,
             createdAt,
           });
@@ -414,67 +609,129 @@ export function useFinanceStore() {
         });
       }
 
+      // Optimistic update
       setTransactions((prev) => [...createdList, ...prev]);
+
+      // Write to shared Firestore database
+      try {
+        const batch = writeBatch(db);
+        createdList.forEach((tx) => {
+          const docRef = doc(db, 'transactions', tx.id);
+          batch.set(docRef, tx);
+        });
+        await batch.commit();
+      } catch (error) {
+        handleFirestoreError(error, OperationType.CREATE, 'transactions');
+      }
+
       return createdList[0]?.id;
     },
-    []
+    [checkAdminPermission]
   );
 
-  const updateTransaction = useCallback((id: string, updatedFields: Partial<Transaction>) => {
-    setTransactions((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, ...updatedFields } : item))
-    );
-  }, []);
+  const updateTransaction = useCallback(
+    async (id: string, updatedFields: Partial<Transaction>) => {
+      if (!checkAdminPermission()) return;
 
-  const deleteTransaction = useCallback((id: string, deleteAllInGroup: boolean = false) => {
-    setTransactions((prev) => {
-      if (!deleteAllInGroup) {
-        return prev.filter((item) => item.id !== id);
+      setTransactions((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, ...updatedFields } : item))
+      );
+
+      try {
+        const docRef = doc(db, 'transactions', id);
+        await setDoc(docRef, { ...updatedFields, updatedAt: new Date().toISOString() }, { merge: true });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `transactions/${id}`);
+      }
+    },
+    [checkAdminPermission]
+  );
+
+  const deleteTransaction = useCallback(
+    async (id: string, deleteAllInGroup: boolean = false) => {
+      if (!checkAdminPermission()) return;
+
+      let idsToDelete: string[] = [id];
+
+      if (deleteAllInGroup) {
+        const target = transactions.find((item) => item.id === id);
+        if (target) {
+          if (target.installmentGroupId) {
+            idsToDelete = transactions
+              .filter((item) => item.installmentGroupId === target.installmentGroupId)
+              .map((item) => item.id);
+          } else if (target.recurrenceGroupId) {
+            idsToDelete = transactions
+              .filter((item) => item.recurrenceGroupId === target.recurrenceGroupId)
+              .map((item) => item.id);
+          }
+        }
       }
 
-      const target = prev.find((item) => item.id === id);
-      if (!target) return prev.filter((item) => item.id !== id);
+      setTransactions((prev) => prev.filter((item) => !idsToDelete.includes(item.id)));
 
-      if (target.installmentGroupId) {
-        return prev.filter(
-          (item) => item.installmentGroupId !== target.installmentGroupId
-        );
+      try {
+        const batch = writeBatch(db);
+        idsToDelete.forEach((delId) => {
+          batch.delete(doc(db, 'transactions', delId));
+        });
+        await batch.commit();
+      } catch (error) {
+        handleFirestoreError(error, OperationType.DELETE, 'transactions');
       }
+    },
+    [checkAdminPermission, transactions]
+  );
 
-      if (target.recurrenceGroupId) {
-        return prev.filter(
-          (item) => item.recurrenceGroupId !== target.recurrenceGroupId
-        );
+  const toggleTransactionPaid = useCallback(
+    async (id: string) => {
+      if (!checkAdminPermission()) return;
+
+      const target = transactions.find((item) => item.id === id);
+      if (!target) return;
+      const nextPaid = !target.isPaid;
+
+      setTransactions((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, isPaid: nextPaid } : item))
+      );
+
+      try {
+        const docRef = doc(db, 'transactions', id);
+        await setDoc(docRef, { isPaid: nextPaid }, { merge: true });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `transactions/${id}`);
       }
+    },
+    [checkAdminPermission, transactions]
+  );
 
-      return prev.filter((item) => item.id !== id);
-    });
-  }, []);
+  // Budget limits mutation (Admin Only)
+  const updateBudgetLimit = useCallback(
+    async (id: string, newLimit: number, threshold?: number) => {
+      if (!checkAdminPermission()) return;
 
-  const toggleTransactionPaid = useCallback((id: string) => {
-    setTransactions((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, isPaid: !item.isPaid } : item))
-    );
-  }, []);
+      const updatedFields = {
+        monthlyLimit: newLimit,
+        ...(threshold !== undefined ? { alertThresholdPercent: threshold } : {}),
+      };
 
-  // Budget limits mutation
-  const updateBudgetLimit = useCallback((id: string, newLimit: number, threshold?: number) => {
-    setBudgetLimits((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              monthlyLimit: newLimit,
-              ...(threshold !== undefined ? { alertThresholdPercent: threshold } : {}),
-            }
-          : item
-      )
-    );
-  }, []);
+      setBudgetLimits((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, ...updatedFields } : item))
+      );
 
-  // Update incomes (Salário, Comissão, Extra) for current month or propagate to all months
+      try {
+        const docRef = doc(db, 'limits', id);
+        await setDoc(docRef, updatedFields, { merge: true });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `limits/${id}`);
+      }
+    },
+    [checkAdminPermission]
+  );
+
+  // Update incomes (Salário, Comissão, Extra)
   const updateMonthlyIncomes = useCallback(
-    ({
+    async ({
       salary,
       commission,
       extra,
@@ -485,139 +742,195 @@ export function useFinanceStore() {
       extra: number;
       applyToAllMonths?: boolean;
     }) => {
-      setTransactions((prev) => {
-        const targetMonths: string[] = [];
-        if (applyToAllMonths) {
-          // Current month and next 12 months (plus previous 2 months)
-          for (let offset = -2; offset <= 12; offset++) {
-            let m = selectedMonth + offset;
-            let y = selectedYear;
-            while (m < 0) {
-              m += 12;
-              y -= 1;
-            }
-            while (m >= 12) {
-              m -= 12;
-              y += 1;
-            }
-            targetMonths.push(`${y}-${String(m + 1).padStart(2, '0')}`);
+      if (!checkAdminPermission()) return;
+
+      const targetMonths: string[] = [];
+      if (applyToAllMonths) {
+        for (let offset = -2; offset <= 12; offset++) {
+          let m = selectedMonth + offset;
+          let y = selectedYear;
+          while (m < 0) {
+            m += 12;
+            y -= 1;
           }
-        } else {
-          targetMonths.push(selectedMonthKey);
+          while (m >= 12) {
+            m -= 12;
+            y += 1;
+          }
+          targetMonths.push(`${y}-${String(m + 1).padStart(2, '0')}`);
+        }
+      } else {
+        targetMonths.push(selectedMonthKey);
+      }
+
+      let updatedList = [...transactions];
+      const newlyAddedOrUpdated: Transaction[] = [];
+
+      targetMonths.forEach((mKey) => {
+        // 1. Salário
+        if (salary > 0) {
+          const existingSalary = updatedList.find(
+            (t) => t.date.startsWith(mKey) && t.category === 'salary'
+          );
+          if (existingSalary) {
+            const mod = { ...existingSalary, amount: salary };
+            updatedList = updatedList.map((t) => (t.id === existingSalary.id ? mod : t));
+            newlyAddedOrUpdated.push(mod);
+          } else {
+            const newTx: Transaction = {
+              id: `tx-salary-${mKey}-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+              type: 'income',
+              category: 'salary',
+              subCategory: 'Salário Fixo',
+              description: 'Salário Mensal',
+              amount: salary,
+              date: `${mKey}-05`,
+              paymentMethod: 'bank_transfer',
+              isPaid: mKey <= selectedMonthKey,
+              createdAt: new Date().toISOString(),
+            };
+            updatedList.push(newTx);
+            newlyAddedOrUpdated.push(newTx);
+          }
         }
 
-        let updatedList = [...prev];
-
-        targetMonths.forEach((mKey) => {
-          // 1. Salário
-          if (salary > 0) {
-            const existingSalary = updatedList.find(
-              (t) => t.date.startsWith(mKey) && t.category === 'salary'
-            );
-            if (existingSalary) {
-              updatedList = updatedList.map((t) =>
-                t.id === existingSalary.id ? { ...t, amount: salary } : t
-              );
+        // 2. Comissão
+        if (commission >= 0) {
+          const existingCommission = updatedList.find(
+            (t) => t.date.startsWith(mKey) && t.category === 'commission'
+          );
+          if (existingCommission) {
+            if (commission === 0) {
+              updatedList = updatedList.filter((t) => t.id !== existingCommission.id);
             } else {
-              updatedList.push({
-                id: `tx-salary-${mKey}-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
-                type: 'income',
-                category: 'salary',
-                subCategory: 'Salário Fixo',
-                description: 'Salário Mensal',
-                amount: salary,
-                date: `${mKey}-05`,
-                paymentMethod: 'bank_transfer',
-                isPaid: mKey <= selectedMonthKey,
-                createdAt: new Date().toISOString(),
-              });
+              const mod = { ...existingCommission, amount: commission };
+              updatedList = updatedList.map((t) => (t.id === existingCommission.id ? mod : t));
+              newlyAddedOrUpdated.push(mod);
             }
+          } else if (commission > 0) {
+            const newTx: Transaction = {
+              id: `tx-comm-${mKey}-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+              type: 'income',
+              category: 'commission',
+              subCategory: 'Comissões',
+              description: 'Comissões de Vendas',
+              amount: commission,
+              date: `${mKey}-15`,
+              paymentMethod: 'pix',
+              isPaid: mKey <= selectedMonthKey,
+              createdAt: new Date().toISOString(),
+            };
+            updatedList.push(newTx);
+            newlyAddedOrUpdated.push(newTx);
           }
+        }
 
-          // 2. Comissão
-          if (commission >= 0) {
-            const existingCommission = updatedList.find(
-              (t) => t.date.startsWith(mKey) && t.category === 'commission'
-            );
-            if (existingCommission) {
-              if (commission === 0) {
-                updatedList = updatedList.filter((t) => t.id !== existingCommission.id);
-              } else {
-                updatedList = updatedList.map((t) =>
-                  t.id === existingCommission.id ? { ...t, amount: commission } : t
-                );
-              }
-            } else if (commission > 0) {
-              updatedList.push({
-                id: `tx-comm-${mKey}-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
-                type: 'income',
-                category: 'commission',
-                subCategory: 'Comissões',
-                description: 'Comissões de Vendas',
-                amount: commission,
-                date: `${mKey}-15`,
-                paymentMethod: 'pix',
-                isPaid: mKey <= selectedMonthKey,
-                createdAt: new Date().toISOString(),
-              });
+        // 3. Extra
+        if (extra >= 0) {
+          const existingExtra = updatedList.find(
+            (t) =>
+              t.date.startsWith(mKey) &&
+              (t.category === 'freelance' || t.category === 'other_income')
+          );
+          if (existingExtra) {
+            if (extra === 0) {
+              updatedList = updatedList.filter((t) => t.id !== existingExtra.id);
+            } else {
+              const mod = { ...existingExtra, amount: extra };
+              updatedList = updatedList.map((t) => (t.id === existingExtra.id ? mod : t));
+              newlyAddedOrUpdated.push(mod);
             }
+          } else if (extra > 0) {
+            const newTx: Transaction = {
+              id: `tx-extra-${mKey}-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+              type: 'income',
+              category: 'freelance',
+              subCategory: 'Renda Extra',
+              description: 'Renda Extra / Serviços',
+              amount: extra,
+              date: `${mKey}-20`,
+              paymentMethod: 'pix',
+              isPaid: mKey <= selectedMonthKey,
+              createdAt: new Date().toISOString(),
+            };
+            updatedList.push(newTx);
+            newlyAddedOrUpdated.push(newTx);
           }
-
-          // 3. Extra / Freelance
-          if (extra >= 0) {
-            const existingExtra = updatedList.find(
-              (t) =>
-                t.date.startsWith(mKey) &&
-                (t.category === 'freelance' || t.category === 'other_income')
-            );
-            if (existingExtra) {
-              if (extra === 0) {
-                updatedList = updatedList.filter((t) => t.id !== existingExtra.id);
-              } else {
-                updatedList = updatedList.map((t) =>
-                  t.id === existingExtra.id ? { ...t, amount: extra } : t
-                );
-              }
-            } else if (extra > 0) {
-              updatedList.push({
-                id: `tx-extra-${mKey}-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
-                type: 'income',
-                category: 'freelance',
-                subCategory: 'Renda Extra',
-                description: 'Renda Extra / Serviços',
-                amount: extra,
-                date: `${mKey}-20`,
-                paymentMethod: 'pix',
-                isPaid: mKey <= selectedMonthKey,
-                createdAt: new Date().toISOString(),
-              });
-            }
-          }
-        });
-
-        return updatedList;
+        }
       });
+
+      setTransactions(updatedList);
+
+      if (newlyAddedOrUpdated.length > 0) {
+        try {
+          const batch = writeBatch(db);
+          newlyAddedOrUpdated.forEach((tx) => {
+            const docRef = doc(db, 'transactions', tx.id);
+            batch.set(docRef, tx, { merge: true });
+          });
+          await batch.commit();
+        } catch (error) {
+          handleFirestoreError(error, OperationType.WRITE, 'transactions');
+        }
+      }
     },
-    [selectedMonth, selectedYear, selectedMonthKey]
+    [checkAdminPermission, transactions, selectedMonth, selectedYear, selectedMonthKey]
   );
 
-  // Credit cards mutations
-  const addCreditCard = useCallback((newCard: Omit<CreditCard, 'id'>) => {
-    const id = `card-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-    const created: CreditCard = { ...newCard, id };
-    setCreditCards((prev) => [...prev, created]);
-    return created;
-  }, []);
+  // Credit cards mutations (Admin Only)
+  const addCreditCard = useCallback(
+    async (newCard: Omit<CreditCard, 'id'>) => {
+      if (!checkAdminPermission()) return {} as CreditCard;
 
-  const updateCreditCard = useCallback((id: string, updatedFields: Partial<CreditCard>) => {
-    setCreditCards((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, ...updatedFields } : c))
-    );
-  }, []);
+      const id = `card-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      const created: CreditCard = { ...newCard, id };
+      setCreditCards((prev) => [...prev, created]);
 
-  const deleteCreditCard = useCallback((id: string) => {
-    setCreditCards((prev) => prev.filter((c) => c.id !== id));
-  }, []);
+      try {
+        const docRef = doc(db, 'cards', id);
+        await setDoc(docRef, created);
+      } catch (error) {
+        handleFirestoreError(error, OperationType.CREATE, `cards/${id}`);
+      }
+
+      return created;
+    },
+    [checkAdminPermission]
+  );
+
+  const updateCreditCard = useCallback(
+    async (id: string, updatedFields: Partial<CreditCard>) => {
+      if (!checkAdminPermission()) return;
+
+      setCreditCards((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, ...updatedFields } : c))
+      );
+
+      try {
+        const docRef = doc(db, 'cards', id);
+        await setDoc(docRef, updatedFields, { merge: true });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `cards/${id}`);
+      }
+    },
+    [checkAdminPermission]
+  );
+
+  const deleteCreditCard = useCallback(
+    async (id: string) => {
+      if (!checkAdminPermission()) return;
+
+      setCreditCards((prev) => prev.filter((c) => c.id !== id));
+
+      try {
+        const docRef = doc(db, 'cards', id);
+        await deleteDoc(docRef);
+      } catch (error) {
+        handleFirestoreError(error, OperationType.DELETE, `cards/${id}`);
+      }
+    },
+    [checkAdminPermission]
+  );
 
   // Investment mutations & calculations
   const totalInvested = useMemo(() => {
@@ -638,30 +951,67 @@ export function useFinanceStore() {
     }, 0);
   }, [monthContributions]);
 
-  const addInvestmentGoal = useCallback((newGoal: Omit<InvestmentGoal, 'id' | 'createdAt'>) => {
-    const id = `inv-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-    const created: InvestmentGoal = {
-      ...newGoal,
-      id,
-      createdAt: new Date().toISOString(),
-    };
-    setInvestments((prev) => [...prev, created]);
-    return created;
-  }, []);
+  const addInvestmentGoal = useCallback(
+    async (newGoal: Omit<InvestmentGoal, 'id' | 'createdAt'>) => {
+      if (!checkAdminPermission()) return {} as InvestmentGoal;
 
-  const updateInvestmentGoal = useCallback((id: string, updatedFields: Partial<InvestmentGoal>) => {
-    setInvestments((prev) =>
-      prev.map((g) => (g.id === id ? { ...g, ...updatedFields } : g))
-    );
-  }, []);
+      const id = `inv-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      const created: InvestmentGoal = {
+        ...newGoal,
+        id,
+        createdAt: new Date().toISOString(),
+      };
+      setInvestments((prev) => [...prev, created]);
 
-  const deleteInvestmentGoal = useCallback((id: string) => {
-    setInvestments((prev) => prev.filter((g) => g.id !== id));
-    setContributions((prev) => prev.filter((c) => c.goalId !== id));
-  }, []);
+      try {
+        const docRef = doc(db, 'investments', id);
+        await setDoc(docRef, created);
+      } catch (error) {
+        handleFirestoreError(error, OperationType.CREATE, `investments/${id}`);
+      }
+
+      return created;
+    },
+    [checkAdminPermission]
+  );
+
+  const updateInvestmentGoal = useCallback(
+    async (id: string, updatedFields: Partial<InvestmentGoal>) => {
+      if (!checkAdminPermission()) return;
+
+      setInvestments((prev) =>
+        prev.map((g) => (g.id === id ? { ...g, ...updatedFields } : g))
+      );
+
+      try {
+        const docRef = doc(db, 'investments', id);
+        await setDoc(docRef, updatedFields, { merge: true });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `investments/${id}`);
+      }
+    },
+    [checkAdminPermission]
+  );
+
+  const deleteInvestmentGoal = useCallback(
+    async (id: string) => {
+      if (!checkAdminPermission()) return;
+
+      setInvestments((prev) => prev.filter((g) => g.id !== id));
+      setContributions((prev) => prev.filter((c) => c.goalId !== id));
+
+      try {
+        const docRef = doc(db, 'investments', id);
+        await deleteDoc(docRef);
+      } catch (error) {
+        handleFirestoreError(error, OperationType.DELETE, `investments/${id}`);
+      }
+    },
+    [checkAdminPermission]
+  );
 
   const addInvestmentContribution = useCallback(
-    ({
+    async ({
       goalId,
       type,
       amount,
@@ -676,6 +1026,8 @@ export function useFinanceStore() {
       notes?: string;
       createTransactionRecord?: boolean;
     }) => {
+      if (!checkAdminPermission()) return {} as InvestmentContribution;
+
       const contribDate = date || `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-15`;
       const contribId = `contrib-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
       const newContrib: InvestmentContribution = {
@@ -702,77 +1054,96 @@ export function useFinanceStore() {
         })
       );
 
+      try {
+        const docRef = doc(db, 'contributions', contribId);
+        await setDoc(docRef, newContrib);
+      } catch (error) {
+        handleFirestoreError(error, OperationType.CREATE, `contributions/${contribId}`);
+      }
+
       // Optional: Add to ledger
       if (createTransactionRecord) {
         const targetGoal = investments.find((g) => g.id === goalId);
         const goalName = targetGoal ? targetGoal.name : 'Investimento';
         const txId = `tx-inv-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
 
-        if (type === 'deposit') {
-          setTransactions((prev) => [
-            {
-              id: txId,
-              type: 'expense',
-              category: 'general_expenses',
-              subCategory: 'Investimentos & Poupança',
-              description: `Aporte: ${goalName}`,
-              amount,
-              date: contribDate,
-              paymentMethod: 'pix',
-              isPaid: true,
-              notes: notes || `Valor guardado na meta ${goalName}`,
-              createdAt: new Date().toISOString(),
-            },
-            ...prev,
-          ]);
-        } else {
-          // Withdraw is registered as other income if selected
-          setTransactions((prev) => [
-            {
-              id: txId,
-              type: 'income',
-              category: 'investments',
-              subCategory: 'Resgate de Investimento',
-              description: `Resgate: ${goalName}`,
-              amount,
-              date: contribDate,
-              paymentMethod: 'pix',
-              isPaid: true,
-              notes: notes || `Resgate da meta ${goalName}`,
-              createdAt: new Date().toISOString(),
-            },
-            ...prev,
-          ]);
+        const txObj: Transaction =
+          type === 'deposit'
+            ? {
+                id: txId,
+                type: 'expense',
+                category: 'general_expenses',
+                subCategory: 'Investimentos & Poupança',
+                description: `Aporte: ${goalName}`,
+                amount,
+                date: contribDate,
+                paymentMethod: 'pix',
+                isPaid: true,
+                notes: notes || `Valor guardado na meta ${goalName}`,
+                createdAt: new Date().toISOString(),
+              }
+            : {
+                id: txId,
+                type: 'income',
+                category: 'investments',
+                subCategory: 'Resgate de Investimento',
+                description: `Resgate: ${goalName}`,
+                amount,
+                date: contribDate,
+                paymentMethod: 'pix',
+                isPaid: true,
+                notes: notes || `Resgate da meta ${goalName}`,
+                createdAt: new Date().toISOString(),
+              };
+
+        setTransactions((prev) => [txObj, ...prev]);
+
+        try {
+          await setDoc(doc(db, 'transactions', txId), txObj);
+        } catch (e) {
+          console.error('Error saving contribution transaction', e);
         }
       }
 
       return newContrib;
     },
-    [investments, selectedMonth, selectedYear]
+    [checkAdminPermission, investments, selectedMonth, selectedYear]
   );
 
-  const deleteInvestmentContribution = useCallback((id: string) => {
-    setContributions((prev) => {
-      const target = prev.find((c) => c.id === id);
-      if (target) {
-        // Revert goal amount
-        setInvestments((invs) =>
-          invs.map((g) => {
-            if (g.id !== target.goalId) return g;
-            const reverted =
-              target.type === 'deposit'
-                ? Math.max(0, (g.currentAmount || 0) - target.amount)
-                : (g.currentAmount || 0) + target.amount;
-            return { ...g, currentAmount: reverted };
-          })
-        );
-      }
-      return prev.filter((c) => c.id !== id);
-    });
-  }, []);
+  const deleteInvestmentContribution = useCallback(
+    async (id: string) => {
+      if (!checkAdminPermission()) return;
 
-  // Reset / Zero out all data to start completely from scratch
-  const resetToZero = useCallback(() => {
+      setContributions((prev) => {
+        const target = prev.find((c) => c.id === id);
+        if (target) {
+          setInvestments((invs) =>
+            invs.map((g) => {
+              if (g.id !== target.goalId) return g;
+              const reverted =
+                target.type === 'deposit'
+                  ? Math.max(0, (g.currentAmount || 0) - target.amount)
+                  : (g.currentAmount || 0) + target.amount;
+              return { ...g, currentAmount: reverted };
+            })
+          );
+        }
+        return prev.filter((c) => c.id !== id);
+      });
+
+      try {
+        await deleteDoc(doc(db, 'contributions', id));
+      } catch (error) {
+        handleFirestoreError(error, OperationType.DELETE, `contributions/${id}`);
+      }
+    },
+    [checkAdminPermission]
+  );
+
+  // Reset to zero (Admin Only)
+  const resetToZero = useCallback(async () => {
+    if (!checkAdminPermission()) return;
+
     setTransactions([]);
     setCreditCards([]);
     setInvestments([]);
@@ -793,22 +1164,29 @@ export function useFinanceStore() {
       localStorage.setItem(STORAGE_KEYS.CONTRIBUTIONS, JSON.stringify([]));
       localStorage.setItem(
         STORAGE_KEYS.LIMITS,
-        JSON.stringify(
-          INITIAL_BUDGET_LIMITS.map((lim) => ({ ...lim, monthlyLimit: 0 }))
-        )
+        JSON.stringify(INITIAL_BUDGET_LIMITS.map((lim) => ({ ...lim, monthlyLimit: 0 })))
       );
     } catch (e) {
       console.error('Error clearing data', e);
     }
-  }, []);
 
-  // For compatibility with the requested "restaurar demonstração zere todos os valores"
+    try {
+      const batch = writeBatch(db);
+      transactions.forEach((tx) => {
+        batch.delete(doc(db, 'transactions', tx.id));
+      });
+      await batch.commit();
+    } catch (e) {
+      console.error('Error deleting documents from cloud', e);
+    }
+  }, [checkAdminPermission, transactions]);
+
   const resetToSampleData = useCallback(() => {
     resetToZero();
   }, [resetToZero]);
 
-  // Option to reload demo items if desired
   const loadSampleData = useCallback(() => {
+    if (!checkAdminPermission()) return;
     setTransactions(INITIAL_TRANSACTIONS);
     setBudgetLimits(INITIAL_BUDGET_LIMITS);
     setCreditCards(INITIAL_CREDIT_CARDS);
@@ -816,16 +1194,8 @@ export function useFinanceStore() {
     setContributions(INITIAL_CONTRIBUTIONS);
     setSelectedYear(2026);
     setSelectedMonth(8);
-    try {
-      localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(INITIAL_TRANSACTIONS));
-      localStorage.setItem(STORAGE_KEYS.LIMITS, JSON.stringify(INITIAL_BUDGET_LIMITS));
-      localStorage.setItem(STORAGE_KEYS.CARDS, JSON.stringify(INITIAL_CREDIT_CARDS));
-      localStorage.setItem(STORAGE_KEYS.INVESTMENTS, JSON.stringify(INITIAL_INVESTMENTS));
-      localStorage.setItem(STORAGE_KEYS.CONTRIBUTIONS, JSON.stringify(INITIAL_CONTRIBUTIONS));
-    } catch (e) {
-      console.error('Error saving sample data', e);
-    }
-  }, []);
+    seedLocalToCloud();
+  }, [checkAdminPermission, seedLocalToCloud]);
 
   return {
     selectedYear,
@@ -872,5 +1242,12 @@ export function useFinanceStore() {
     setCreditCards,
     setInvestments,
     setContributions,
+    // Realtime & Cloud status props
+    isLiveConnected,
+    isCloudActive: isAdmin,
+    isCloudSyncing,
+    lastCloudSync,
+    forceSyncToCloud: seedLocalToCloud,
+    checkAdminPermission,
   };
 }

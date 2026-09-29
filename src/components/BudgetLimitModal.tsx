@@ -51,23 +51,23 @@ export const BudgetLimitModal: React.FC<BudgetLimitModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-black/80 backdrop-blur-xs">
       <div
         className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-800 text-slate-100 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150"
         role="dialog"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/60">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-800 bg-slate-950/60">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 shrink-0">
               <SlidersHorizontal className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="text-base font-bold text-white">
-                Configurar Limites & Alertas de Gastos
+            <div className="min-w-0">
+              <h3 className="text-sm sm:text-base font-bold text-white truncate">
+                Configurar Limites & Alertas
               </h3>
-              <p className="text-xs text-slate-400">
-                Defina os tetos mensais e seja avisado quando atingir a margem de risco
+              <p className="text-[11px] sm:text-xs text-slate-400 truncate">
+                Defina os tetos mensais e margens de risco
               </p>
             </div>
           </div>
@@ -80,7 +80,7 @@ export const BudgetLimitModal: React.FC<BudgetLimitModalProps> = ({
         </div>
 
         {/* Content */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 max-h-[78vh] overflow-y-auto">
           <div className="p-3 bg-amber-950/30 border border-amber-900/50 rounded-xl flex items-start gap-2.5 text-xs text-amber-300">
             <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
             <div>

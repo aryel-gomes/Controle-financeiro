@@ -1,0 +1,132 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Registered user profile and settings",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 256 },
+        "displayName": { "type": "string", "maxLength": 128 },
+        "photoURL": { "type": "string", "maxLength": 512 },
+        "role": { "type": "string", "enum": ["admin", "user"] },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["userId", "email", "role"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Income or expense financial transaction record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "type": { "type": "string", "enum": ["income", "expense"] },
+        "category": { "type": "string", "maxLength": 64 },
+        "subCategory": { "type": "string", "maxLength": 64 },
+        "description": { "type": "string", "maxLength": 256 },
+        "amount": { "type": "number" },
+        "date": { "type": "string", "maxLength": 32 },
+        "paymentMethod": { "type": "string", "maxLength": 64 },
+        "isPaid": { "type": "boolean" },
+        "cardName": { "type": "string", "maxLength": 128 },
+        "currentInstallment": { "type": "number" },
+        "totalInstallments": { "type": "number" },
+        "installmentGroupId": { "type": "string", "maxLength": 128 },
+        "recurrenceGroupId": { "type": "string", "maxLength": 128 },
+        "isRecurring": { "type": "boolean" },
+        "notes": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "type", "category", "description", "amount", "date", "paymentMethod", "isPaid"]
+    },
+    "CreditCard": {
+      "title": "CreditCard",
+      "description": "Credit card management details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 128 },
+        "limit": { "type": "number" },
+        "closingDay": { "type": "number" },
+        "dueDay": { "type": "number" },
+        "color": { "type": "string", "maxLength": 32 },
+        "bank": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "name", "limit", "closingDay", "dueDay", "color"]
+    },
+    "BudgetLimit": {
+      "title": "BudgetLimit",
+      "description": "Category or overall monthly budget limit",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "category": { "type": "string", "maxLength": 64 },
+        "title": { "type": "string", "maxLength": 128 },
+        "monthlyLimit": { "type": "number" },
+        "alertThresholdPercent": { "type": "number" },
+        "enabled": { "type": "boolean" }
+      },
+      "required": ["id", "category", "title", "monthlyLimit", "alertThresholdPercent", "enabled"]
+    },
+    "InvestmentGoal": {
+      "title": "InvestmentGoal",
+      "description": "User savings and investment goal",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 128 },
+        "category": { "type": "string", "maxLength": 64 },
+        "institution": { "type": "string", "maxLength": 128 },
+        "currentAmount": { "type": "number" },
+        "targetAmount": { "type": "number" },
+        "monthlyContribution": { "type": "number" },
+        "color": { "type": "string", "maxLength": 32 },
+        "expectedReturnAnnual": { "type": "number" },
+        "notes": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "name", "category", "currentAmount", "targetAmount"]
+    },
+    "InvestmentContribution": {
+      "title": "InvestmentContribution",
+      "description": "Contribution or withdrawal to/from an investment goal",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "goalId": { "type": "string", "maxLength": 128 },
+        "type": { "type": "string", "enum": ["deposit", "withdraw"] },
+        "amount": { "type": "number" },
+        "date": { "type": "string", "maxLength": 32 },
+        "notes": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "goalId", "type", "amount", "date"]
+    }
+  },
+  "firestore": {
+    "/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "Financial transactions, readable by all and editable by admin"
+    },
+    "/cards/{cardId}": {
+      "schema": "CreditCard",
+      "description": "Credit cards, readable by all and editable by admin"
+    },
+    "/limits/{limitId}": {
+      "schema": "BudgetLimit",
+      "description": "Budget limits, readable by all and editable by admin"
+    },
+    "/investments/{goalId}": {
+      "schema": "InvestmentGoal",
+      "description": "Investment goals, readable by all and editable by admin"
+    },
+    "/contributions/{contributionId}": {
+      "schema": "InvestmentContribution",
+      "description": "Deposits and withdrawals into investment goals"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile with role and settings"
+    }
+  }
+}

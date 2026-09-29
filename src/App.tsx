@@ -15,6 +15,7 @@ import { IncomeConfigModal } from './components/IncomeConfigModal';
 import { CreditCardManager } from './components/CreditCardManager';
 import { InvestmentManager } from './components/InvestmentManager';
 import { ExportImportModal } from './components/ExportImportModal';
+import { AdminAuthModal } from './components/AdminAuthModal';
 import { Transaction } from './types/finance';
 import { formatCurrency } from './utils/formatters';
 import {
@@ -26,14 +27,23 @@ import {
   ArrowRight,
   TrendingUp,
   RotateCcw,
+  Wallet,
+  Cloud,
+  Database,
+  CheckCircle2,
+  Calendar,
 } from 'lucide-react';
 
 export default function App() {
-  const store = useFinanceStore();
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const store = useFinanceStore(() => setIsAdminModalOpen(true));
 
   const [activeTab, setActiveTab] = useState<
     'overview' | 'transactions' | 'cards' | 'investments' | 'budgets'
   >('overview');
+  const [overviewSection, setOverviewSection] = useState<
+    'transactions' | 'installments' | 'cards' | 'charts' | 'investments'
+  >('transactions');
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
@@ -92,10 +102,49 @@ export default function App() {
         onOpenBudgetModal={() => setIsBudgetModalOpen(true)}
         onOpenExportModal={() => setIsExportModalOpen(true)}
         onOpenIncomeModal={() => setIsIncomeModalOpen(true)}
+        onOpenAdminModal={() => setIsAdminModalOpen(true)}
+        isCloudActive={store.isCloudActive}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         hasActiveAlerts={store.activeAlerts.length > 0}
       />
+
+      {/* Cloud Sync Status Strip (shows if offline/demo or syncing) */}
+      {!store.isCloudActive ? (
+        <div className="bg-slate-900/90 border-b border-slate-800 px-3 py-2 text-xs text-slate-300">
+          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              <span>
+                <strong className="text-white">Modo Consulta (Dados Atualizados):</strong> Você está vendo os dados reais em nuvem. Para adicionar ou editar lançamentos, conecte o Admin.
+              </span>
+            </div>
+            <button
+              onClick={() => setIsAdminModalOpen(true)}
+              className="px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 font-semibold text-emerald-300 transition-colors"
+            >
+              Acessar como Admin para Editar →
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-emerald-950/40 border-b border-emerald-900/50 px-3 py-1.5 text-[11px] text-emerald-300">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>
+                <strong>Modo Administrador Ativo:</strong> Todas as alterações feitas aqui são salvas no banco de dados e atualizam instantaneamente para qualquer dispositivo ou pessoa que abrir o site.
+              </span>
+            </div>
+            <button
+              onClick={() => setIsAdminModalOpen(true)}
+              className="text-emerald-400 hover:text-emerald-300 font-semibold underline text-[11px]"
+            >
+              Gerenciar Admin
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 2. Spending Limit Warning Banner */}
       <AlertBanner
@@ -105,7 +154,7 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-5">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-5 space-y-4 sm:space-y-5 pb-24 sm:pb-6">
         {/* Interactive Month Timeline Scrubber */}
         <MonthScrubber
           selectedYear={store.selectedYear}
@@ -132,273 +181,265 @@ export default function App() {
               activeFilter={activeCategoryFilter}
             />
 
-            {/* Visual Installments & Future Debts Progression Map */}
-            <InstallmentFutureViewer
-              transactions={store.transactions}
-              onSelectMonthYear={(year, month) => {
-                store.setSelectedYear(year);
-                store.setSelectedMonth(month);
-              }}
-              selectedMonthKey={store.selectedMonthKey}
-            />
+            {/* Modern Clean Segmented Control Hub */}
+            <div className="flex items-center gap-1.5 p-1.5 bg-slate-900/90 rounded-2xl border border-slate-800/80 overflow-x-auto scrollbar-none shadow-xs">
+              <button
+                onClick={() => setOverviewSection('transactions')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                  overviewSection === 'transactions'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                }`}
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                <span>Extrato & Lançamentos ({store.monthTransactions.length})</span>
+              </button>
 
-            {/* Overview Quick Glance: Cards & Investments Side-by-Side */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              {/* Credit Cards Quick View */}
-              <div className="bg-[#121927] p-5 rounded-2xl border border-slate-800/80 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="p-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400">
-                      <CardIcon className="w-4 h-4" />
-                    </span>
-                    <div>
-                      <h3 className="text-sm font-bold text-white">Cartões de Crédito</h3>
-                      <p className="text-[11px] text-slate-400">
-                        {store.creditCards.length} cartões cadastrados · Faturas do mês
-                      </p>
-                    </div>
-                  </div>
+              <button
+                onClick={() => setOverviewSection('installments')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                  overviewSection === 'installments'
+                    ? 'bg-purple-600 text-white shadow-xs'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                }`}
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                <span>Mapa de Parcelas</span>
+              </button>
 
-                  <button
-                    onClick={() => setActiveTab('cards')}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-purple-400 hover:text-purple-300 transition-colors"
-                  >
-                    <span>Ver todos</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+              <button
+                onClick={() => setOverviewSection('cards')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                  overviewSection === 'cards'
+                    ? 'bg-purple-600 text-white shadow-xs'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                }`}
+              >
+                <CardIcon className="w-3.5 h-3.5" />
+                <span>Cartões & Faturas ({store.creditCards.length})</span>
+              </button>
 
-                {store.creditCards.length === 0 ? (
-                  <div className="py-6 px-4 bg-slate-900/60 border border-dashed border-slate-800 rounded-xl text-center space-y-2">
-                    <p className="text-xs text-slate-400">Nenhum cartão cadastrado ainda.</p>
-                    <button
-                      onClick={() => setActiveTab('cards')}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-purple-400 hover:text-purple-300 transition-colors"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Cadastrar seu primeiro cartão</span>
-                    </button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {store.creditCards.slice(0, 4).map((card) => {
-                      const cardTxs = store.monthTransactions.filter(
-                        (tx) =>
-                          tx.type === 'expense' &&
-                          (tx.cardName === card.name ||
-                            (!tx.cardName && card.id === store.creditCards[0]?.id))
-                      );
-                      const invoice = cardTxs.reduce((acc, curr) => acc + curr.amount, 0);
-                      const available = Math.max(0, card.limit - invoice);
-                      const usedPct = card.limit > 0 ? (invoice / card.limit) * 100 : 0;
+              <button
+                onClick={() => setOverviewSection('charts')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                  overviewSection === 'charts'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                }`}
+              >
+                <TrendingUp className="w-3.5 h-3.5" />
+                <span>Gráficos & Comparativo</span>
+              </button>
 
-                      return (
-                        <div
-                          key={card.id}
-                          onClick={() => setActiveTab('cards')}
-                          className="p-3 bg-slate-900/90 hover:bg-slate-900 border border-slate-800 rounded-xl cursor-pointer transition-all space-y-2 group"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-white group-hover:text-purple-400 transition-colors truncate">
-                              {card.name}
-                            </span>
-                            <span className="text-[10px] text-slate-500 font-mono">
-                              Venc: dia {card.dueDay}
-                            </span>
-                          </div>
-                          <div className="flex items-baseline justify-between text-xs">
-                            <span className="text-slate-400 text-[11px]">Fatura:</span>
-                            <span className="font-mono tabular-nums font-bold text-white">
-                              {formatCurrency(invoice)}
-                            </span>
-                          </div>
-                          <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden">
-                            <div
-                              className={`h-full rounded-full transition-all duration-300 ${
-                                usedPct >= 90
-                                  ? 'bg-rose-500'
-                                  : usedPct >= 75
-                                  ? 'bg-amber-400'
-                                  : 'bg-purple-500'
-                              }`}
-                              style={{ width: `${Math.min(100, usedPct)}%` }}
-                            />
-                          </div>
-                          <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono pt-0.5">
-                            <span>Disp: {formatCurrency(available)}</span>
-                            <span>Lim: {formatCurrency(card.limit)}</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+              <button
+                onClick={() => setOverviewSection('investments')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                  overviewSection === 'investments'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                }`}
+              >
+                <PiggyBank className="w-3.5 h-3.5" />
+                <span>Investimentos & Metas</span>
+              </button>
+            </div>
 
-                <div className="pt-2 flex items-center justify-between text-xs border-t border-slate-800/60">
-                  <button
-                    onClick={() => setActiveTab('cards')}
-                    className="text-xs text-purple-400 hover:text-purple-300 font-semibold transition-colors flex items-center gap-1"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Adicionar / Gerenciar Cartões</span>
-                  </button>
-                  <button
-                    onClick={() => handleOpenNewTransaction('expense', 'credit_card')}
-                    className="text-xs text-slate-300 hover:text-white transition-colors"
-                  >
-                    + Lançar compra
-                  </button>
-                </div>
-              </div>
-
-              {/* Investments Quick View */}
-              <div className="bg-[#121927] p-5 rounded-2xl border border-slate-800/80 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-                      <PiggyBank className="w-4 h-4" />
-                    </span>
+            {/* View 1: Extrato & Lançamentos com Painel Lateral Limpo */}
+            {overviewSection === 'transactions' && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 animate-in fade-in duration-150">
+                {/* Coluna Principal: Extrato do Mês */}
+                <div className="lg:col-span-8 space-y-4">
+                  <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-sm font-bold text-white">
-                        Investimentos & Dinheiro Guardado
+                        Lançamentos de {store.currentMonthSummary.label}
                       </h3>
-                      <p className="text-[11px] text-slate-400">
-                        {formatCurrency(store.totalInvested)} acumulados em {store.investments.length} metas
+                      <p className="text-xs text-slate-400">
+                        {store.monthTransactions.length} registros neste mês
                       </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setIsIncomeModalOpen(true)}
+                        className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-400 bg-emerald-950/40 hover:bg-emerald-950/60 border border-emerald-500/30 rounded-xl transition-colors"
+                      >
+                        <Banknote className="w-3.5 h-3.5" />
+                        <span>Ajustar Renda</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleOpenNewTransaction()}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 rounded-xl transition-colors shadow-sm"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>+ Nova Transação</span>
+                      </button>
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => setActiveTab('investments')}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
-                  >
-                    <span>Abrir aba</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
+                  <TransactionList
+                    transactions={store.monthTransactions}
+                    onOpenNewTransaction={() => handleOpenNewTransaction()}
+                    onEditTransaction={handleEditTransaction}
+                    onDeleteTransaction={store.deleteTransaction}
+                    onTogglePaid={store.toggleTransactionPaid}
+                    initialCategoryFilter={activeCategoryFilter}
+                  />
                 </div>
 
-                {store.investments.length === 0 ? (
-                  <div className="py-6 px-4 bg-slate-900/60 border border-dashed border-slate-800 rounded-xl text-center space-y-2">
-                    <p className="text-xs text-slate-400">Nenhuma meta de investimento criada ainda.</p>
+                {/* Coluna Lateral: Resumo Compacto e Inteligente */}
+                <div className="lg:col-span-4 space-y-4">
+                  {/* Mini Donut de Categorias */}
+                  <ExpensesDonutChart
+                    summary={store.currentMonthSummary}
+                    onFilterCategory={handleFilterCategory}
+                  />
+
+                  {/* Resumo Rápido de Cartões de Crédito */}
+                  <div className="bg-[#121927] p-4 rounded-2xl border border-slate-800 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                          <CardIcon className="w-4 h-4" />
+                        </div>
+                        <h4 className="text-xs font-bold text-white">Faturas dos Cartões</h4>
+                      </div>
+                      <button
+                        onClick={() => setOverviewSection('cards')}
+                        className="text-[11px] font-semibold text-purple-400 hover:text-purple-300 flex items-center gap-1 transition-colors"
+                      >
+                        <span>Gerenciar</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
+
+                    {store.creditCards.length === 0 ? (
+                      <p className="text-xs text-slate-400 text-center py-2">
+                        Nenhum cartão cadastrado.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {store.creditCards.slice(0, 3).map((card) => {
+                          const cardTxs = store.monthTransactions.filter(
+                            (tx) =>
+                              tx.type === 'expense' &&
+                              (tx.cardName === card.name ||
+                                (!tx.cardName && card.id === store.creditCards[0]?.id))
+                          );
+                          const invoice = cardTxs.reduce((acc, curr) => acc + curr.amount, 0);
+
+                          return (
+                            <div
+                              key={card.id}
+                              onClick={() => setOverviewSection('cards')}
+                              className="p-2.5 rounded-xl bg-slate-900/80 hover:bg-slate-900 border border-slate-800 cursor-pointer flex items-center justify-between text-xs transition-colors"
+                            >
+                              <span className="font-medium text-white truncate">{card.name}</span>
+                              <span className="font-mono font-bold text-purple-300">
+                                {formatCurrency(invoice)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Atalho Prático para Mapa de Parcelas */}
+                  <div className="bg-[#121927] p-4 rounded-2xl border border-slate-800 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                          <Calendar className="w-4 h-4" />
+                        </div>
+                        <h4 className="text-xs font-bold text-white">Compras Parceladas</h4>
+                      </div>
+                      <button
+                        onClick={() => setOverviewSection('installments')}
+                        className="text-[11px] font-semibold text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors"
+                      >
+                        <span>Ver Mapa</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      Veja o cronograma completo de parcelas que vencem nos próximos meses e o valor total comprometido.
+                    </p>
                     <button
-                      onClick={() => setActiveTab('investments')}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
+                      onClick={() => setOverviewSection('installments')}
+                      className="w-full py-2 bg-slate-900 hover:bg-slate-850 border border-slate-800 rounded-xl text-xs font-semibold text-slate-200 transition-colors"
                     >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Criar meta para guardar dinheiro</span>
+                      Abrir Mapa de Parcelas Futuras →
                     </button>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {store.investments.slice(0, 4).map((inv) => {
-                      const progress =
-                        inv.targetAmount > 0 ? (inv.currentAmount / inv.targetAmount) * 100 : 0;
-
-                      return (
-                        <div
-                          key={inv.id}
-                          onClick={() => setActiveTab('investments')}
-                          className="p-3 bg-slate-900/90 hover:bg-slate-900 border border-slate-800 rounded-xl cursor-pointer transition-all space-y-2 group"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-white group-hover:text-emerald-400 transition-colors truncate">
-                              {inv.name}
-                            </span>
-                            <span className="text-[10px] text-emerald-400 font-mono">
-                              {progress.toFixed(0)}%
-                            </span>
-                          </div>
-                          <div className="flex items-baseline justify-between text-xs">
-                            <span className="text-slate-400 text-[11px]">Guardado:</span>
-                            <span className="font-mono tabular-nums font-bold text-white">
-                              {formatCurrency(inv.currentAmount)}
-                            </span>
-                          </div>
-                          <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden">
-                            <div
-                              className="bg-emerald-500 h-full rounded-full transition-all duration-300"
-                              style={{ width: `${Math.min(100, progress)}%` }}
-                            />
-                          </div>
-                          <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono pt-0.5">
-                            <span>Meta: {formatCurrency(inv.targetAmount)}</span>
-                            {inv.expectedReturnAnnual && (
-                              <span className="text-slate-500">~{inv.expectedReturnAnnual}% a.a.</span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                <div className="pt-2 flex items-center justify-between text-xs border-t border-slate-800/60">
-                  <button
-                    onClick={() => setActiveTab('investments')}
-                    className="text-xs text-emerald-400 hover:text-emerald-300 font-semibold transition-colors flex items-center gap-1"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Guardar Dinheiro / Nova Meta</span>
-                  </button>
-                  <span className="text-[11px] text-slate-400 font-mono">
-                    Rendimento: ~{formatCurrency(store.totalInvested * 0.0085)}/mês
-                  </span>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Charts Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <MonthlyComparisonChart
-                historyData={store.historyData}
-                selectedMonthKey={store.selectedMonthKey}
-              />
-              <ExpensesDonutChart
-                summary={store.currentMonthSummary}
-                onFilterCategory={handleFilterCategory}
-              />
-            </div>
-
-            {/* Transactions Section directly accessible on same screen */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-white">
-                    Transações de {store.currentMonthSummary.label}
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    {store.monthTransactions.length} lançamentos neste mês (incluindo parcelas)
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setIsIncomeModalOpen(true)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-400 bg-emerald-950/40 hover:bg-emerald-950/60 border border-emerald-500/30 rounded-xl transition-colors"
-                  >
-                    <Banknote className="w-3.5 h-3.5" />
-                    <span>Ajustar Renda Mensal</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleOpenNewTransaction()}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 rounded-xl transition-colors shadow-sm"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>+ Nova Transação</span>
-                  </button>
-                </div>
+            {/* View 2: Mapa de Parcelas (Redesenhado & Limpo) */}
+            {overviewSection === 'installments' && (
+              <div className="animate-in fade-in duration-150">
+                <InstallmentFutureViewer
+                  transactions={store.transactions}
+                  onSelectMonthYear={(year, month) => {
+                    store.setSelectedYear(year);
+                    store.setSelectedMonth(month);
+                  }}
+                  selectedMonthKey={store.selectedMonthKey}
+                />
               </div>
+            )}
 
-              <TransactionList
-                transactions={store.monthTransactions}
-                onOpenNewTransaction={() => handleOpenNewTransaction()}
-                onEditTransaction={handleEditTransaction}
-                onDeleteTransaction={store.deleteTransaction}
-                onTogglePaid={store.toggleTransactionPaid}
-                initialCategoryFilter={activeCategoryFilter}
-              />
-            </div>
+            {/* View 3: Cartões de Crédito & Faturas */}
+            {overviewSection === 'cards' && (
+              <div className="animate-in fade-in duration-150">
+                <CreditCardManager
+                  creditCards={store.creditCards}
+                  transactions={store.monthTransactions}
+                  onOpenNewTransaction={() => handleOpenNewTransaction('expense', 'credit_card')}
+                  onEditTransaction={handleEditTransaction}
+                  onDeleteTransaction={store.deleteTransaction}
+                  onAddCreditCard={store.addCreditCard}
+                  onUpdateCreditCard={store.updateCreditCard}
+                  onDeleteCreditCard={store.deleteCreditCard}
+                  selectedMonthName={store.currentMonthSummary.label}
+                />
+              </div>
+            )}
+
+            {/* View 4: Gráficos & Comparativo Mensal */}
+            {overviewSection === 'charts' && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 animate-in fade-in duration-150">
+                <MonthlyComparisonChart
+                  historyData={store.historyData}
+                  selectedMonthKey={store.selectedMonthKey}
+                />
+                <ExpensesDonutChart
+                  summary={store.currentMonthSummary}
+                  onFilterCategory={handleFilterCategory}
+                />
+              </div>
+            )}
+
+            {/* View 5: Investimentos & Metas */}
+            {overviewSection === 'investments' && (
+              <div className="animate-in fade-in duration-150">
+                <InvestmentManager
+                  investments={store.investments}
+                  contributions={store.contributions}
+                  totalInvested={store.totalInvested}
+                  totalTargetInvested={store.totalTargetInvested}
+                  monthInvestedNet={store.monthInvestedNet}
+                  selectedMonthName={store.currentMonthSummary.label}
+                  onAddGoal={store.addInvestmentGoal}
+                  onUpdateGoal={store.updateInvestmentGoal}
+                  onDeleteGoal={store.deleteInvestmentGoal}
+                  onAddContribution={store.addInvestmentContribution}
+                  onDeleteContribution={store.deleteInvestmentContribution}
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -483,15 +524,15 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-auto border-t border-slate-800/80 bg-[#0B0F17] py-5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+      <footer className="mt-auto border-t border-slate-800/80 bg-[#0B0F17] py-5 mb-16 sm:mb-0">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400 text-center sm:text-left">
           <div className="flex items-center gap-2">
             <span className="font-bold text-white">Controle financeiro</span>
             <span>·</span>
             <span>Gestão Pessoal Descomplicada</span>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center justify-center sm:justify-end gap-x-4 gap-y-2">
             <button
               onClick={() => setActiveTab('investments')}
               className="text-emerald-400 hover:text-emerald-300 transition-colors"
@@ -538,6 +579,61 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* Mobile Bottom Navigation Bar (screen width < 640px) */}
+      <nav
+        aria-label="Navegação rápida no celular"
+        className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0B0F17]/95 backdrop-blur-lg border-t border-slate-800/90 px-3 py-1.5 flex items-center justify-around pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-2xl"
+      >
+        <button
+          onClick={() => setActiveTab('overview')}
+          className={`flex flex-col items-center gap-0.5 p-1 rounded-xl transition-all ${
+            activeTab === 'overview' ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Wallet className="w-5 h-5" />
+          <span className="text-[10px]">Início</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('transactions')}
+          className={`flex flex-col items-center gap-0.5 p-1 rounded-xl transition-all ${
+            activeTab === 'transactions' ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <SlidersHorizontal className="w-5 h-5" />
+          <span className="text-[10px]">Extrato</span>
+        </button>
+
+        {/* Center Prominent Action Button: + Nova Transação */}
+        <button
+          onClick={() => handleOpenNewTransaction()}
+          className="flex items-center justify-center -mt-5 w-12 h-12 rounded-full bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-white shadow-lg shadow-emerald-950/70 ring-4 ring-[#0B0F17] transition-transform active:scale-95 shrink-0"
+          aria-label="Nova transação"
+        >
+          <Plus className="w-6 h-6" strokeWidth={2.5} />
+        </button>
+
+        <button
+          onClick={() => setActiveTab('cards')}
+          className={`flex flex-col items-center gap-0.5 p-1 rounded-xl transition-all ${
+            activeTab === 'cards' ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <CardIcon className="w-5 h-5" />
+          <span className="text-[10px]">Cartões</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('investments')}
+          className={`flex flex-col items-center gap-0.5 p-1 rounded-xl transition-all ${
+            activeTab === 'investments' ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <PiggyBank className="w-5 h-5" />
+          <span className="text-[10px]">Investir</span>
+        </button>
+      </nav>
 
       {/* Modals */}
       <TransactionModal
@@ -590,6 +686,16 @@ export default function App() {
         }}
         onResetData={handleResetToZero}
         onLoadSampleData={store.loadSampleData}
+      />
+
+      {/* Admin Cloud Authentication & Real-Time Sync Modal */}
+      <AdminAuthModal
+        isOpen={isAdminModalOpen}
+        onClose={() => setIsAdminModalOpen(false)}
+        isCloudActive={store.isCloudActive}
+        isSyncing={store.isCloudSyncing}
+        onForceSyncToCloud={store.forceSyncToCloud}
+        transactionCount={store.transactions.length}
       />
     </div>
   );

@@ -1,0 +1,142 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'aryelgomes59@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Entity validation helpers
+    function isValidUser(data) {
+      return data.keys().hasAll(['userId', 'email', 'role']) &&
+        data.userId is string && data.userId.size() <= 128 &&
+        data.email is string && data.email.size() <= 256 &&
+        data.role in ['admin', 'user'];
+    }
+
+    function isValidTransaction(data) {
+      return data.keys().hasAll(['id', 'type', 'category', 'description', 'amount', 'date', 'paymentMethod', 'isPaid']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.type in ['income', 'expense'] &&
+        data.category is string && data.category.size() <= 64 &&
+        data.description is string && data.description.size() <= 256 &&
+        (data.amount is int || data.amount is float) &&
+        data.date is string && data.date.size() <= 32 &&
+        data.paymentMethod is string && data.paymentMethod.size() <= 64 &&
+        data.isPaid is bool;
+    }
+
+    function isValidCreditCard(data) {
+      return data.keys().hasAll(['id', 'name', 'limit', 'closingDay', 'dueDay', 'color']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.name is string && data.name.size() <= 128 &&
+        (data.limit is int || data.limit is float) &&
+        (data.closingDay is int || data.closingDay is float) &&
+        (data.dueDay is int || data.dueDay is float) &&
+        data.color is string && data.color.size() <= 32;
+    }
+
+    function isValidBudgetLimit(data) {
+      return data.keys().hasAll(['id', 'category', 'title', 'monthlyLimit', 'alertThresholdPercent', 'enabled']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.category is string && data.category.size() <= 64 &&
+        data.title is string && data.title.size() <= 128 &&
+        (data.monthlyLimit is int || data.monthlyLimit is float) &&
+        (data.alertThresholdPercent is int || data.alertThresholdPercent is float) &&
+        data.enabled is bool;
+    }
+
+    function isValidInvestmentGoal(data) {
+      return data.keys().hasAll(['id', 'name', 'category', 'currentAmount', 'targetAmount']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.name is string && data.name.size() <= 128 &&
+        data.category is string && data.category.size() <= 64 &&
+        (data.currentAmount is int || data.currentAmount is float) &&
+        (data.targetAmount is int || data.targetAmount is float);
+    }
+
+    function isValidInvestmentContribution(data) {
+      return data.keys().hasAll(['id', 'goalId', 'type', 'amount', 'date']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.goalId is string && data.goalId.size() <= 128 &&
+        data.type in ['deposit', 'withdraw'] &&
+        (data.amount is int || data.amount is float) &&
+        data.date is string && data.date.size() <= 32;
+    }
+
+    // Admins collection
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // User profile
+    match /users/{userId} {
+      allow read, write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+    }
+
+    // SHARED PUBLIC-READ FINANCIAL DATA (CONSULTABLE BY ANYONE, EDITABLE ONLY BY ADMIN)
+    match /transactions/{transactionId} {
+      allow read: if true;
+      allow create, update: if isAdmin() && isValidId(transactionId) && isValidTransaction(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /cards/{cardId} {
+      allow read: if true;
+      allow create, update: if isAdmin() && isValidId(cardId) && isValidCreditCard(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /limits/{limitId} {
+      allow read: if true;
+      allow create, update: if isAdmin() && isValidId(limitId) && isValidBudgetLimit(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /investments/{goalId} {
+      allow read: if true;
+      allow create, update: if isAdmin() && isValidId(goalId) && isValidInvestmentGoal(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /contributions/{contributionId} {
+      allow read: if true;
+      allow create, update: if isAdmin() && isValidId(contributionId) && isValidInvestmentContribution(incoming());
+      allow delete: if isAdmin();
+    }
+  }
+}

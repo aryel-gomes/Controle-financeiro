@@ -50,28 +50,29 @@ export const MonthScrubber: React.FC<MonthScrubberProps> = ({
   }, []);
 
   return (
-    <div className="bg-[#121927] rounded-2xl border border-slate-800/80 p-3.5 shadow-sm">
-      <div className="flex items-center justify-between mb-2.5 px-1">
-        <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-emerald-400" />
-          <span className="text-xs font-bold text-white tracking-tight">
-            Linha do Tempo Mensal (Navegue pelos Meses)
+    <div className="bg-[#121927] rounded-2xl border border-slate-800/80 p-3 sm:p-3.5 shadow-sm max-w-full overflow-hidden">
+      <div className="flex items-center justify-between mb-2 px-1 gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <Calendar className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span className="text-xs font-bold text-white tracking-tight truncate">
+            <span className="sm:hidden">Linha do Tempo</span>
+            <span className="hidden sm:inline">Linha do Tempo Mensal (Navegue pelos Meses)</span>
           </span>
-          <span className="hidden sm:inline-block text-[11px] text-slate-400">
-            · Veja como suas parcelas e dívidas impactam os próximos meses
+          <span className="hidden md:inline-block text-[11px] text-slate-400">
+            · Veja como suas parcelas impactam os próximos meses
           </span>
         </div>
 
         <button
           onClick={() => onSelectMonthYear(2026, 8)}
-          className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
+          className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors shrink-0 whitespace-nowrap"
         >
-          Voltar para Mês Atual
+          Hoje
         </button>
       </div>
 
       {/* Horizontal Scrubber */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none snap-x -mx-0.5 px-0.5">
         {monthsList.map((item) => {
           const isSelected = item.year === selectedYear && item.month === selectedMonth;
 

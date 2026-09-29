@@ -224,9 +224,9 @@ export const TransactionList: React.FC<TransactionListProps> = ({
         </div>
       </div>
 
-      {/* Table Content */}
+      {/* Content: Mobile Card List (< md) and Desktop Table (>= md) */}
       {filteredTransactions.length === 0 ? (
-        <div className="p-12 text-center flex flex-col items-center justify-center">
+        <div className="p-8 sm:p-12 text-center flex flex-col items-center justify-center">
           <div className="w-12 h-12 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 mb-3">
             <Tag className="w-6 h-6" />
           </div>
@@ -240,173 +240,313 @@ export const TransactionList: React.FC<TransactionListProps> = ({
           </p>
           <button
             onClick={onOpenNewTransaction}
-            className="mt-4 px-3.5 py-1.5 text-xs font-semibold text-emerald-400 bg-emerald-950/40 hover:bg-emerald-950/60 border border-emerald-500/30 rounded-xl transition-colors"
+            className="mt-4 px-3.5 py-2 text-xs font-semibold text-emerald-400 bg-emerald-950/40 hover:bg-emerald-950/60 border border-emerald-500/30 rounded-xl transition-colors"
           >
             + Adicionar Nova Transação
           </button>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-900/80 border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider">
-              <tr>
-                <th className="py-3 px-4 w-10">Status</th>
-                <th className="py-3 px-4">Descrição</th>
-                <th className="py-3 px-4">Categoria</th>
-                <th className="py-3 px-4">Pagamento / Cartão</th>
-                <th className="py-3 px-4">Data</th>
-                <th className="py-3 px-4 text-right">Valor</th>
-                <th className="py-3 px-4 text-center w-20">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60">
-              {filteredTransactions.map((tx) => {
-                const catMeta = CATEGORY_DEFINITIONS[tx.category] || {
-                  label: tx.category,
-                  color: '#94a3b8',
-                  bgColor: '#1e293b',
-                };
-                const isIncome = tx.type === 'income';
+        <>
+          {/* Mobile Card List (screen width < 768px) */}
+          <div className="md:hidden divide-y divide-slate-800/70">
+            {filteredTransactions.map((tx) => {
+              const catMeta = CATEGORY_DEFINITIONS[tx.category] || {
+                label: tx.category,
+                color: '#94a3b8',
+                bgColor: '#1e293b',
+              };
+              const isIncome = tx.type === 'income';
 
-                return (
-                  <tr
-                    key={tx.id}
-                    className="hover:bg-slate-900/60 transition-colors group"
-                  >
-                    {/* Status Toggle */}
-                    <td className="py-3 px-4">
-                      <button
-                        onClick={() => onTogglePaid(tx.id)}
-                        title={
-                          tx.isPaid
-                            ? 'Marcado como Pago/Recebido (clique para pendente)'
-                            : 'Marcado como Pendente (clique para liquidar)'
-                        }
-                        className="p-1 text-slate-500 hover:text-slate-300 rounded transition-colors"
-                      >
-                        {tx.isPaid ? (
-                          <CheckCircle className="w-4 h-4 text-emerald-400" />
-                        ) : (
-                          <Clock className="w-4 h-4 text-amber-400" />
-                        )}
-                      </button>
-                    </td>
+              const handleDeleteClick = () => {
+                if (tx.installmentGroupId || (tx.totalInstallments && tx.totalInstallments > 1)) {
+                  const deleteAll = confirm(
+                    `Esta é a parcela ${tx.currentInstallment || 1}/${tx.totalInstallments || 1} de "${tx.description}".\n\nDeseja excluir TODAS as parcelas deste lançamento?\n\n• OK: Excluir TODAS as parcelas deste item\n• Cancelar: Excluir APENAS esta parcela`
+                  );
+                  if (deleteAll) {
+                    onDeleteTransaction(tx.id, true);
+                  } else {
+                    if (confirm(`Confirmar exclusão de APENAS esta parcela ${tx.currentInstallment || 1}/${tx.totalInstallments || 1}?`)) {
+                      onDeleteTransaction(tx.id, false);
+                    }
+                  }
+                } else if (tx.recurrenceGroupId) {
+                  const deleteAll = confirm(
+                    `Este lançamento faz parte de uma despesa recorrente.\n\nDeseja excluir TODOS os lançamentos desta recorrência?`
+                  );
+                  onDeleteTransaction(tx.id, deleteAll);
+                } else {
+                  if (confirm(`Deseja excluir "${tx.description}"?`)) {
+                    onDeleteTransaction(tx.id, false);
+                  }
+                }
+              };
 
-                    {/* Description */}
-                    <td className="py-3 px-4">
-                      <div className="font-medium text-white flex items-center gap-1.5">
-                        <span>{tx.description}</span>
+              return (
+                <div
+                  key={tx.id}
+                  className="p-3.5 hover:bg-slate-900/60 transition-colors flex items-start justify-between gap-3"
+                >
+                  {/* Left: Status Toggle & Info */}
+                  <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                    <button
+                      onClick={() => onTogglePaid(tx.id)}
+                      title={tx.isPaid ? 'Pago/Recebido' : 'Pendente'}
+                      className="mt-0.5 p-1 text-slate-500 hover:text-slate-300 rounded transition-colors shrink-0"
+                    >
+                      {tx.isPaid ? (
+                        <CheckCircle className="w-5 h-5 text-emerald-400" />
+                      ) : (
+                        <Clock className="w-5 h-5 text-amber-400" />
+                      )}
+                    </button>
+
+                    <div className="min-w-0 flex-1 space-y-1">
+                      {/* Description & Installment */}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span
+                          onClick={() => onEditTransaction(tx)}
+                          className="font-semibold text-white text-xs sm:text-sm cursor-pointer hover:text-emerald-400 transition-colors truncate max-w-full"
+                        >
+                          {tx.description}
+                        </span>
                         {tx.totalInstallments && tx.totalInstallments > 1 && (
-                          <span className="text-[10px] font-mono text-purple-300 bg-purple-950/60 border border-purple-800/60 px-1.5 py-0.5 rounded">
+                          <span className="text-[10px] font-mono text-purple-300 bg-purple-950/70 border border-purple-800/60 px-1.5 py-0.5 rounded shrink-0">
                             {tx.currentInstallment || 1}/{tx.totalInstallments}x
                           </span>
                         )}
                       </div>
-                      {tx.subCategory && (
-                        <div className="text-[11px] text-slate-400">
-                          {tx.subCategory}
-                        </div>
-                      )}
-                    </td>
 
-                    {/* Category */}
-                    <td className="py-3 px-4">
-                      <span
-                        className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium border border-slate-800"
-                        style={{
-                          backgroundColor: '#0F172A',
-                          color: catMeta.color,
-                        }}
-                      >
+                      {/* Meta Tags: Category, Card, Date */}
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-400">
                         <span
-                          className="w-1.5 h-1.5 rounded-full"
-                          style={{ backgroundColor: catMeta.color }}
-                        />
-                        <span>{catMeta.label}</span>
-                      </span>
-                    </td>
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border border-slate-800 shrink-0"
+                          style={{
+                            backgroundColor: '#0F172A',
+                            color: catMeta.color,
+                          }}
+                        >
+                          <span
+                            className="w-1.5 h-1.5 rounded-full"
+                            style={{ backgroundColor: catMeta.color }}
+                          />
+                          <span>{catMeta.label}</span>
+                        </span>
 
-                    {/* Payment Method & Card Details */}
-                    <td className="py-3 px-4 text-slate-300">
-                      <div className="flex items-center gap-1.5">
-                        {tx.paymentMethod === 'credit_card' ? (
-                          <>
-                            <CardIcon className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-                            <span className="truncate max-w-[140px]">
-                              {tx.cardName || 'Cartão de Crédito'}
-                            </span>
-                          </>
-                        ) : (
-                          <span>
-                            {PAYMENT_METHOD_LABELS[tx.paymentMethod] || tx.paymentMethod}
+                        {tx.cardName && (
+                          <span className="inline-flex items-center gap-1 text-slate-300 font-mono truncate max-w-[130px]">
+                            <CardIcon className="w-3 h-3 text-purple-400 shrink-0" />
+                            <span className="truncate">{tx.cardName}</span>
                           </span>
                         )}
+
+                        <span className="font-mono text-slate-500">
+                          {formatDateBR(tx.date)}
+                        </span>
                       </div>
-                    </td>
 
-                    {/* Date */}
-                    <td className="py-3 px-4 text-slate-400 font-mono tabular-nums whitespace-nowrap">
-                      {formatDateBR(tx.date)}
-                    </td>
+                      {tx.subCategory && (
+                        <p className="text-[10px] text-slate-500 truncate">
+                          {tx.subCategory}
+                        </p>
+                      )}
+                    </div>
+                  </div>
 
-                    {/* Amount */}
-                    <td className="py-3 px-4 text-right">
-                      <span
-                        className={`font-mono tabular-nums font-semibold ${
-                          isIncome ? 'text-emerald-400' : 'text-slate-100'
-                        }`}
+                  {/* Right: Amount & Actions */}
+                  <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
+                    <span
+                      className={`font-mono tabular-nums font-bold text-xs sm:text-sm ${
+                        isIncome ? 'text-emerald-400' : 'text-slate-100'
+                      }`}
+                    >
+                      {isIncome ? '+' : '-'} {formatCurrency(tx.amount)}
+                    </span>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => onEditTransaction(tx)}
+                        title="Editar"
+                        className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
                       >
-                        {isIncome ? '+' : '-'} {formatCurrency(tx.amount)}
-                      </span>
-                    </td>
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={handleDeleteClick}
+                        title="Excluir"
+                        className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
 
-                    {/* Actions */}
-                    <td className="py-3 px-4 text-center">
-                      <div className="flex items-center justify-center gap-1 opacity-75 group-hover:opacity-100 transition-opacity">
+          {/* Desktop Table (screen width >= 768px) */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-900/80 border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider">
+                <tr>
+                  <th className="py-3 px-4 w-10">Status</th>
+                  <th className="py-3 px-4">Descrição</th>
+                  <th className="py-3 px-4">Categoria</th>
+                  <th className="py-3 px-4">Pagamento / Cartão</th>
+                  <th className="py-3 px-4">Data</th>
+                  <th className="py-3 px-4 text-right">Valor</th>
+                  <th className="py-3 px-4 text-center w-20">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {filteredTransactions.map((tx) => {
+                  const catMeta = CATEGORY_DEFINITIONS[tx.category] || {
+                    label: tx.category,
+                    color: '#94a3b8',
+                    bgColor: '#1e293b',
+                  };
+                  const isIncome = tx.type === 'income';
+
+                  return (
+                    <tr
+                      key={tx.id}
+                      className="hover:bg-slate-900/60 transition-colors group"
+                    >
+                      {/* Status Toggle */}
+                      <td className="py-3 px-4">
                         <button
-                          onClick={() => onEditTransaction(tx)}
-                          title="Editar transação"
-                          className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition-colors"
+                          onClick={() => onTogglePaid(tx.id)}
+                          title={
+                            tx.isPaid
+                              ? 'Marcado como Pago/Recebido (clique para pendente)'
+                              : 'Marcado como Pendente (clique para liquidar)'
+                          }
+                          className="p-1 text-slate-500 hover:text-slate-300 rounded transition-colors"
                         >
-                          <Edit2 className="w-3.5 h-3.5" />
+                          {tx.isPaid ? (
+                            <CheckCircle className="w-4 h-4 text-emerald-400" />
+                          ) : (
+                            <Clock className="w-4 h-4 text-amber-400" />
+                          )}
                         </button>
-                        <button
-                          onClick={() => {
-                            if (tx.installmentGroupId || (tx.totalInstallments && tx.totalInstallments > 1)) {
-                              const deleteAll = confirm(
-                                `Esta é a parcela ${tx.currentInstallment || 1}/${tx.totalInstallments || 1} de "${tx.description}".\n\nDeseja excluir TODAS as parcelas deste lançamento?\n\n• OK: Excluir TODAS as parcelas deste item\n• Cancelar: Excluir APENAS esta parcela`
-                              );
-                              if (deleteAll) {
-                                onDeleteTransaction(tx.id, true);
+                      </td>
+
+                      {/* Description */}
+                      <td className="py-3 px-4">
+                        <div className="font-medium text-white flex items-center gap-1.5">
+                          <span>{tx.description}</span>
+                          {tx.totalInstallments && tx.totalInstallments > 1 && (
+                            <span className="text-[10px] font-mono text-purple-300 bg-purple-950/60 border border-purple-800/60 px-1.5 py-0.5 rounded">
+                              {tx.currentInstallment || 1}/{tx.totalInstallments}x
+                            </span>
+                          )}
+                        </div>
+                        {tx.subCategory && (
+                          <div className="text-[11px] text-slate-400">
+                            {tx.subCategory}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Category */}
+                      <td className="py-3 px-4">
+                        <span
+                          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium border border-slate-800"
+                          style={{
+                            backgroundColor: '#0F172A',
+                            color: catMeta.color,
+                          }}
+                        >
+                          <span
+                            className="w-1.5 h-1.5 rounded-full"
+                            style={{ backgroundColor: catMeta.color }}
+                          />
+                          <span>{catMeta.label}</span>
+                        </span>
+                      </td>
+
+                      {/* Payment Method & Card Details */}
+                      <td className="py-3 px-4 text-slate-300">
+                        <div className="flex items-center gap-1.5">
+                          {tx.paymentMethod === 'credit_card' ? (
+                            <>
+                              <CardIcon className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                              <span className="truncate max-w-[140px]">
+                                {tx.cardName || 'Cartão de Crédito'}
+                              </span>
+                            </>
+                          ) : (
+                            <span>
+                              {PAYMENT_METHOD_LABELS[tx.paymentMethod] || tx.paymentMethod}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Date */}
+                      <td className="py-3 px-4 text-slate-400 font-mono tabular-nums whitespace-nowrap">
+                        {formatDateBR(tx.date)}
+                      </td>
+
+                      {/* Amount */}
+                      <td className="py-3 px-4 text-right">
+                        <span
+                          className={`font-mono tabular-nums font-semibold ${
+                            isIncome ? 'text-emerald-400' : 'text-slate-100'
+                          }`}
+                        >
+                          {isIncome ? '+' : '-'} {formatCurrency(tx.amount)}
+                        </span>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-3 px-4 text-center">
+                        <div className="flex items-center justify-center gap-1 opacity-75 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => onEditTransaction(tx)}
+                            title="Editar transação"
+                            className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition-colors"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (tx.installmentGroupId || (tx.totalInstallments && tx.totalInstallments > 1)) {
+                                const deleteAll = confirm(
+                                  `Esta é a parcela ${tx.currentInstallment || 1}/${tx.totalInstallments || 1} de "${tx.description}".\n\nDeseja excluir TODAS as parcelas deste lançamento?\n\n• OK: Excluir TODAS as parcelas deste item\n• Cancelar: Excluir APENAS esta parcela`
+                                );
+                                if (deleteAll) {
+                                  onDeleteTransaction(tx.id, true);
+                                } else {
+                                  if (confirm(`Confirmar exclusão de APENAS esta parcela ${tx.currentInstallment || 1}/${tx.totalInstallments || 1}?`)) {
+                                    onDeleteTransaction(tx.id, false);
+                                  }
+                                }
+                              } else if (tx.recurrenceGroupId) {
+                                const deleteAll = confirm(
+                                  `Este lançamento faz parte de uma despesa recorrente.\n\nDeseja excluir TODOS os lançamentos desta recorrência?`
+                                );
+                                onDeleteTransaction(tx.id, deleteAll);
                               } else {
-                                if (confirm(`Confirmar exclusão de APENAS esta parcela ${tx.currentInstallment || 1}/${tx.totalInstallments || 1}?`)) {
+                                if (confirm(`Deseja excluir "${tx.description}"?`)) {
                                   onDeleteTransaction(tx.id, false);
                                 }
                               }
-                            } else if (tx.recurrenceGroupId) {
-                              const deleteAll = confirm(
-                                `Este lançamento faz parte de uma despesa recorrente.\n\nDeseja excluir TODOS os lançamentos desta recorrência?`
-                              );
-                              onDeleteTransaction(tx.id, deleteAll);
-                            } else {
-                              if (confirm(`Deseja excluir "${tx.description}"?`)) {
-                                onDeleteTransaction(tx.id, false);
-                              }
-                            }
-                          }}
-                          title="Excluir transação"
-                          className="p-1 text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 rounded transition-colors"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                            }}
+                            title="Excluir transação"
+                            className="p-1 text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 rounded transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {/* Footer Summary */}
