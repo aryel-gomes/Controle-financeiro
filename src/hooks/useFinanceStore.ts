@@ -24,6 +24,7 @@ import {
   setDoc,
   deleteDoc,
   writeBatch,
+  getDocs,
   handleFirestoreError,
   OperationType,
 } from '../lib/firebase';
@@ -62,7 +63,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
     } catch {
       // Fallback
     }
-    return INITIAL_TRANSACTIONS;
+    return [];
   });
 
   const [budgetLimits, setBudgetLimits] = useState<BudgetLimit[]>(() => {
@@ -72,7 +73,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
     } catch {
       // Fallback
     }
-    return INITIAL_BUDGET_LIMITS;
+    return [];
   });
 
   const [creditCards, setCreditCards] = useState<CreditCard[]>(() => {
@@ -82,7 +83,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
     } catch {
       // Fallback
     }
-    return INITIAL_CREDIT_CARDS;
+    return [];
   });
 
   const [investments, setInvestments] = useState<InvestmentGoal[]>(() => {
@@ -92,7 +93,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
     } catch {
       // Fallback
     }
-    return INITIAL_INVESTMENTS;
+    return [];
   });
 
   const [contributions, setContributions] = useState<InvestmentContribution[]>(() => {
@@ -102,14 +103,14 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
     } catch {
       // Fallback
     }
-    return INITIAL_CONTRIBUTIONS;
+    return [];
   });
 
   // Cloud status
   const [isLiveConnected, setIsLiveConnected] = useState<boolean>(false);
+  const [isCloudReady, setIsCloudReady] = useState<boolean>(false);
   const [isCloudSyncing, setIsCloudSyncing] = useState<boolean>(false);
   const [lastCloudSync, setLastCloudSync] = useState<Date | null>(null);
-  const hasSeededRef = useRef<boolean>(false);
 
   // Sync to localStorage as offline fallback
   useEffect(() => {
@@ -152,7 +153,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
     }
   }, [contributions]);
 
-  // Seed / Push local or initial data to shared cloud database
+  // Seed / Push local data to shared cloud database (only when manually triggered)
   const seedLocalToCloud = useCallback(async () => {
     if (!isAdmin) return;
     try {
@@ -160,36 +161,31 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
       const batch = writeBatch(db);
 
       // 1. Transactions
-      const txList = transactions.length > 0 ? transactions : INITIAL_TRANSACTIONS;
-      txList.forEach((tx) => {
+      transactions.forEach((tx) => {
         const docRef = doc(db, 'transactions', tx.id);
         batch.set(docRef, tx, { merge: true });
       });
 
       // 2. Cards
-      const cardList = creditCards.length > 0 ? creditCards : INITIAL_CREDIT_CARDS;
-      cardList.forEach((card) => {
+      creditCards.forEach((card) => {
         const docRef = doc(db, 'cards', card.id);
         batch.set(docRef, card, { merge: true });
       });
 
       // 3. Limits
-      const limitList = budgetLimits.length > 0 ? budgetLimits : INITIAL_BUDGET_LIMITS;
-      limitList.forEach((lim) => {
+      budgetLimits.forEach((lim) => {
         const docRef = doc(db, 'limits', lim.id);
         batch.set(docRef, lim, { merge: true });
       });
 
       // 4. Investments
-      const invList = investments.length > 0 ? investments : INITIAL_INVESTMENTS;
-      invList.forEach((inv) => {
+      investments.forEach((inv) => {
         const docRef = doc(db, 'investments', inv.id);
         batch.set(docRef, inv, { merge: true });
       });
 
       // 5. Contributions
-      const contribList = contributions.length > 0 ? contributions : INITIAL_CONTRIBUTIONS;
-      contribList.forEach((c) => {
+      contributions.forEach((c) => {
         const docRef = doc(db, 'contributions', c.id);
         batch.set(docRef, c, { merge: true });
       });
@@ -197,7 +193,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
       await batch.commit();
       setLastCloudSync(new Date());
     } catch (error) {
-      console.error('Error seeding data to Firestore:', error);
+      console.error('Error syncing data to Firestore:', error);
     } finally {
       setIsCloudSyncing(false);
     }
@@ -212,21 +208,19 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
       collection(db, 'transactions'),
       (snapshot) => {
         setIsLiveConnected(true);
-        if (!snapshot.empty) {
-          const items: Transaction[] = [];
-          snapshot.forEach((d) => {
-            items.push(d.data() as Transaction);
-          });
-          items.sort((a, b) => b.date.localeCompare(a.date));
-          setTransactions(items);
-          setLastCloudSync(new Date());
-        } else if (isAdmin && !hasSeededRef.current) {
-          hasSeededRef.current = true;
-          seedLocalToCloud();
-        }
+        const items: Transaction[] = [];
+        snapshot.forEach((d) => {
+          items.push(d.data() as Transaction);
+        });
+        items.sort((a, b) => b.date.localeCompare(a.date));
+        setTransactions(items);
+        setLastCloudSync(new Date());
+        setIsCloudReady(true);
       },
       (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'transactions');
+        console.warn('Firestore transactions error:', error);
+        setIsLiveConnected(false);
+        setIsCloudReady(true);
       }
     );
     unsubscribes.push(unsubTx);
@@ -235,16 +229,14 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
     const unsubCards = onSnapshot(
       collection(db, 'cards'),
       (snapshot) => {
-        if (!snapshot.empty) {
-          const items: CreditCard[] = [];
-          snapshot.forEach((d) => {
-            items.push(d.data() as CreditCard);
-          });
-          setCreditCards(items);
-        }
+        const items: CreditCard[] = [];
+        snapshot.forEach((d) => {
+          items.push(d.data() as CreditCard);
+        });
+        setCreditCards(items);
       },
       (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'cards');
+        console.warn('Firestore cards error:', error);
       }
     );
     unsubscribes.push(unsubCards);
@@ -253,16 +245,14 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
     const unsubLimits = onSnapshot(
       collection(db, 'limits'),
       (snapshot) => {
-        if (!snapshot.empty) {
-          const items: BudgetLimit[] = [];
-          snapshot.forEach((d) => {
-            items.push(d.data() as BudgetLimit);
-          });
-          setBudgetLimits(items);
-        }
+        const items: BudgetLimit[] = [];
+        snapshot.forEach((d) => {
+          items.push(d.data() as BudgetLimit);
+        });
+        setBudgetLimits(items);
       },
       (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'limits');
+        console.warn('Firestore limits error:', error);
       }
     );
     unsubscribes.push(unsubLimits);
@@ -271,16 +261,14 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
     const unsubInv = onSnapshot(
       collection(db, 'investments'),
       (snapshot) => {
-        if (!snapshot.empty) {
-          const items: InvestmentGoal[] = [];
-          snapshot.forEach((d) => {
-            items.push(d.data() as InvestmentGoal);
-          });
-          setInvestments(items);
-        }
+        const items: InvestmentGoal[] = [];
+        snapshot.forEach((d) => {
+          items.push(d.data() as InvestmentGoal);
+        });
+        setInvestments(items);
       },
       (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'investments');
+        console.warn('Firestore investments error:', error);
       }
     );
     unsubscribes.push(unsubInv);
@@ -289,17 +277,15 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
     const unsubContrib = onSnapshot(
       collection(db, 'contributions'),
       (snapshot) => {
-        if (!snapshot.empty) {
-          const items: InvestmentContribution[] = [];
-          snapshot.forEach((d) => {
-            items.push(d.data() as InvestmentContribution);
-          });
-          items.sort((a, b) => b.date.localeCompare(a.date));
-          setContributions(items);
-        }
+        const items: InvestmentContribution[] = [];
+        snapshot.forEach((d) => {
+          items.push(d.data() as InvestmentContribution);
+        });
+        items.sort((a, b) => b.date.localeCompare(a.date));
+        setContributions(items);
       },
       (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'contributions');
+        console.warn('Firestore contributions error:', error);
       }
     );
     unsubscribes.push(unsubContrib);
@@ -307,7 +293,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
     return () => {
       unsubscribes.forEach((unsub) => unsub());
     };
-  }, [isAdmin, seedLocalToCloud]);
+  }, []);
 
   // Check admin guard
   const checkAdminPermission = useCallback((): boolean => {
@@ -1148,12 +1134,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
     setCreditCards([]);
     setInvestments([]);
     setContributions([]);
-    setBudgetLimits((prev) =>
-      prev.map((lim) => ({
-        ...lim,
-        monthlyLimit: 0,
-      }))
-    );
+    setBudgetLimits([]);
     setSelectedYear(2026);
     setSelectedMonth(8);
 
@@ -1162,24 +1143,42 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
       localStorage.setItem(STORAGE_KEYS.CARDS, JSON.stringify([]));
       localStorage.setItem(STORAGE_KEYS.INVESTMENTS, JSON.stringify([]));
       localStorage.setItem(STORAGE_KEYS.CONTRIBUTIONS, JSON.stringify([]));
-      localStorage.setItem(
-        STORAGE_KEYS.LIMITS,
-        JSON.stringify(INITIAL_BUDGET_LIMITS.map((lim) => ({ ...lim, monthlyLimit: 0 })))
-      );
+      localStorage.setItem(STORAGE_KEYS.LIMITS, JSON.stringify([]));
     } catch (e) {
-      console.error('Error clearing data', e);
+      console.error('Error clearing data in localStorage', e);
     }
 
     try {
-      const batch = writeBatch(db);
-      transactions.forEach((tx) => {
-        batch.delete(doc(db, 'transactions', tx.id));
-      });
-      await batch.commit();
+      setIsCloudSyncing(true);
+
+      const wipeColl = async (collName: string) => {
+        try {
+          const snap = await getDocs(collection(db, collName));
+          if (!snap.empty) {
+            const batch = writeBatch(db);
+            snap.docs.forEach((d) => batch.delete(d.ref));
+            await batch.commit();
+          }
+        } catch (e) {
+          console.warn(`Error wiping ${collName}:`, e);
+        }
+      };
+
+      await Promise.all([
+        wipeColl('transactions'),
+        wipeColl('cards'),
+        wipeColl('limits'),
+        wipeColl('investments'),
+        wipeColl('contributions'),
+      ]);
+
+      setLastCloudSync(new Date());
     } catch (e) {
       console.error('Error deleting documents from cloud', e);
+    } finally {
+      setIsCloudSyncing(false);
     }
-  }, [checkAdminPermission, transactions]);
+  }, [checkAdminPermission]);
 
   const resetToSampleData = useCallback(() => {
     resetToZero();
@@ -1194,8 +1193,19 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
     setContributions(INITIAL_CONTRIBUTIONS);
     setSelectedYear(2026);
     setSelectedMonth(8);
-    seedLocalToCloud();
-  }, [checkAdminPermission, seedLocalToCloud]);
+
+    try {
+      const batch = writeBatch(db);
+      INITIAL_TRANSACTIONS.forEach((tx) => batch.set(doc(db, 'transactions', tx.id), tx));
+      INITIAL_CREDIT_CARDS.forEach((c) => batch.set(doc(db, 'cards', c.id), c));
+      INITIAL_BUDGET_LIMITS.forEach((l) => batch.set(doc(db, 'limits', l.id), l));
+      INITIAL_INVESTMENTS.forEach((inv) => batch.set(doc(db, 'investments', inv.id), inv));
+      INITIAL_CONTRIBUTIONS.forEach((c) => batch.set(doc(db, 'contributions', c.id), c));
+      batch.commit().catch(console.error);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [checkAdminPermission]);
 
   return {
     selectedYear,
@@ -1244,6 +1254,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
     setContributions,
     // Realtime & Cloud status props
     isLiveConnected,
+    isCloudReady,
     isCloudActive: isAdmin,
     isCloudSyncing,
     lastCloudSync,
