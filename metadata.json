@@ -1,0 +1,6 @@
+{
+  "name": "FinanPlan - Gestão Financeira Pessoal",
+  "description": "Ferramenta intuitiva para organização financeira com controle de entradas (salários e comissões), saídas (compras de cartão, dívidas fixas, gastos), gráficos mensais e alertas de limite de gastos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
