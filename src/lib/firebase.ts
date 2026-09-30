@@ -42,6 +42,23 @@ export async function testConnection() {
 }
 testConnection();
 
+// Sanitize object by removing any fields with 'undefined' value to prevent Firestore setDoc errors
+export function sanitizeForFirestore<T extends Record<string, any>>(obj: T): Partial<T> {
+  if (!obj || typeof obj !== 'object') return obj;
+  const cleaned: any = {};
+  Object.keys(obj).forEach((key) => {
+    const val = obj[key];
+    if (val !== undefined) {
+      if (val && typeof val === 'object' && !Array.isArray(val) && !(val instanceof Date)) {
+        cleaned[key] = sanitizeForFirestore(val);
+      } else {
+        cleaned[key] = val;
+      }
+    }
+  });
+  return cleaned;
+}
+
 // Skill mandated Firestore Error Handler
 export enum OperationType {
   CREATE = 'create',

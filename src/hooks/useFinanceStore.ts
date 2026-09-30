@@ -26,6 +26,7 @@ import {
   writeBatch,
   getDocs,
   handleFirestoreError,
+  sanitizeForFirestore,
   OperationType,
 } from '../lib/firebase';
 
@@ -184,31 +185,31 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
       // 1. Transactions
       transactions.forEach((tx) => {
         const docRef = doc(db, 'transactions', tx.id);
-        batch.set(docRef, tx, { merge: true });
+        batch.set(docRef, sanitizeForFirestore(tx), { merge: true });
       });
 
       // 2. Cards
       creditCards.forEach((card) => {
         const docRef = doc(db, 'cards', card.id);
-        batch.set(docRef, card, { merge: true });
+        batch.set(docRef, sanitizeForFirestore(card), { merge: true });
       });
 
       // 3. Limits
       budgetLimits.forEach((lim) => {
         const docRef = doc(db, 'limits', lim.id);
-        batch.set(docRef, lim, { merge: true });
+        batch.set(docRef, sanitizeForFirestore(lim), { merge: true });
       });
 
       // 4. Investments
       investments.forEach((inv) => {
         const docRef = doc(db, 'investments', inv.id);
-        batch.set(docRef, inv, { merge: true });
+        batch.set(docRef, sanitizeForFirestore(inv), { merge: true });
       });
 
       // 5. Contributions
       contributions.forEach((c) => {
         const docRef = doc(db, 'contributions', c.id);
-        batch.set(docRef, c, { merge: true });
+        batch.set(docRef, sanitizeForFirestore(c), { merge: true });
       });
 
       await batch.commit();
@@ -282,8 +283,21 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
         });
         cloudItems.sort((a, b) => b.date.localeCompare(a.date));
 
-        // Authoritative synchronization: the shared cloud database is the single source of truth across all devices
-        setTransactions(cloudItems);
+        setTransactions((prev) => {
+          if (cloudItems.length > 0) {
+            return cloudItems;
+          }
+          if (prev.length > 0) {
+            // Push these local transactions to cloud if cloud is empty
+            const batch = writeBatch(db);
+            prev.forEach((tx) => {
+              batch.set(doc(db, 'transactions', tx.id), sanitizeForFirestore(tx));
+            });
+            batch.commit().catch(console.warn);
+            return prev;
+          }
+          return [];
+        });
         setLastCloudSync(new Date());
         setIsCloudReady(true);
       },
@@ -310,7 +324,18 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
         snapshot.forEach((d) => {
           items.push(d.data() as CreditCard);
         });
-        setCreditCards(items);
+        setCreditCards((prev) => {
+          if (items.length > 0) return items;
+          if (prev.length > 0) {
+            const batch = writeBatch(db);
+            prev.forEach((c) => {
+              batch.set(doc(db, 'cards', c.id), sanitizeForFirestore(c));
+            });
+            batch.commit().catch(console.warn);
+            return prev;
+          }
+          return [];
+        });
       },
       (error) => {
         console.warn('Firestore cards error:', error);
@@ -326,7 +351,18 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
         snapshot.forEach((d) => {
           items.push(d.data() as BudgetLimit);
         });
-        setBudgetLimits(items);
+        setBudgetLimits((prev) => {
+          if (items.length > 0) return items;
+          if (prev.length > 0) {
+            const batch = writeBatch(db);
+            prev.forEach((lim) => {
+              batch.set(doc(db, 'limits', lim.id), sanitizeForFirestore(lim));
+            });
+            batch.commit().catch(console.warn);
+            return prev;
+          }
+          return [];
+        });
       },
       (error) => {
         console.warn('Firestore limits error:', error);
@@ -670,7 +706,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
         const batch = writeBatch(db);
         createdList.forEach((tx) => {
           const docRef = doc(db, 'transactions', tx.id);
-          batch.set(docRef, tx);
+          batch.set(docRef, sanitizeForFirestore(tx));
         });
         await batch.commit();
       } catch (error) {
@@ -698,11 +734,8 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
 
       try {
         const docRef = doc(db, 'transactions', id);
-        if (mergedTx) {
-          await setDoc(docRef, mergedTx, { merge: true });
-        } else {
-          await setDoc(docRef, updatedFields, { merge: true });
-        }
+        const dataToSave = mergedTx ? sanitizeForFirestore(mergedTx) : sanitizeForFirestore(updatedFields);
+        await setDoc(docRef, dataToSave, { merge: true });
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `transactions/${id}`);
       }
@@ -949,7 +982,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
           const batch = writeBatch(db);
           newlyAddedOrUpdated.forEach((tx) => {
             const docRef = doc(db, 'transactions', tx.id);
-            batch.set(docRef, tx, { merge: true });
+            batch.set(docRef, sanitizeForFirestore(tx), { merge: true });
           });
           await batch.commit();
         } catch (error) {
@@ -963,46 +996,48 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
   // Credit cards mutations (Admin Only)
   const addCreditCard = useCallback(
     async (newCard: Omit<CreditCard, 'id'>) => {
-      if (!checkAdminPermission()) return {} as CreditCard;
-
       const id = `card-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
       const created: CreditCard = { ...newCard, id };
       setCreditCards((prev) => [...prev, created]);
 
       try {
         const docRef = doc(db, 'cards', id);
-        await setDoc(docRef, created);
+        await setDoc(docRef, sanitizeForFirestore(created));
       } catch (error) {
         handleFirestoreError(error, OperationType.CREATE, `cards/${id}`);
       }
 
       return created;
     },
-    [checkAdminPermission]
+    []
   );
 
   const updateCreditCard = useCallback(
     async (id: string, updatedFields: Partial<CreditCard>) => {
-      if (!checkAdminPermission()) return;
-
+      let finalCard: CreditCard | null = null;
       setCreditCards((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, ...updatedFields } : c))
+        prev.map((c) => {
+          if (c.id === id) {
+            finalCard = { ...c, ...updatedFields };
+            return finalCard;
+          }
+          return c;
+        })
       );
 
       try {
         const docRef = doc(db, 'cards', id);
-        await setDoc(docRef, updatedFields, { merge: true });
+        const dataToSave = finalCard ? sanitizeForFirestore(finalCard) : sanitizeForFirestore(updatedFields);
+        await setDoc(docRef, dataToSave, { merge: true });
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `cards/${id}`);
       }
     },
-    [checkAdminPermission]
+    []
   );
 
   const deleteCreditCard = useCallback(
     async (id: string) => {
-      if (!checkAdminPermission()) return;
-
       setCreditCards((prev) => prev.filter((c) => c.id !== id));
 
       try {
@@ -1012,7 +1047,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
         handleFirestoreError(error, OperationType.DELETE, `cards/${id}`);
       }
     },
-    [checkAdminPermission]
+    []
   );
 
   // Investment mutations & calculations
@@ -1036,8 +1071,6 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
 
   const addInvestmentGoal = useCallback(
     async (newGoal: Omit<InvestmentGoal, 'id' | 'createdAt'>) => {
-      if (!checkAdminPermission()) return {} as InvestmentGoal;
-
       const id = `inv-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
       const created: InvestmentGoal = {
         ...newGoal,
@@ -1048,38 +1081,42 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
 
       try {
         const docRef = doc(db, 'investments', id);
-        await setDoc(docRef, created);
+        await setDoc(docRef, sanitizeForFirestore(created));
       } catch (error) {
         handleFirestoreError(error, OperationType.CREATE, `investments/${id}`);
       }
 
       return created;
     },
-    [checkAdminPermission]
+    []
   );
 
   const updateInvestmentGoal = useCallback(
     async (id: string, updatedFields: Partial<InvestmentGoal>) => {
-      if (!checkAdminPermission()) return;
-
+      let finalGoal: InvestmentGoal | null = null;
       setInvestments((prev) =>
-        prev.map((g) => (g.id === id ? { ...g, ...updatedFields } : g))
+        prev.map((g) => {
+          if (g.id === id) {
+            finalGoal = { ...g, ...updatedFields };
+            return finalGoal;
+          }
+          return g;
+        })
       );
 
       try {
         const docRef = doc(db, 'investments', id);
-        await setDoc(docRef, updatedFields, { merge: true });
+        const dataToSave = finalGoal ? sanitizeForFirestore(finalGoal) : sanitizeForFirestore(updatedFields);
+        await setDoc(docRef, dataToSave, { merge: true });
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `investments/${id}`);
       }
     },
-    [checkAdminPermission]
+    []
   );
 
   const deleteInvestmentGoal = useCallback(
     async (id: string) => {
-      if (!checkAdminPermission()) return;
-
       setInvestments((prev) => prev.filter((g) => g.id !== id));
       setContributions((prev) => prev.filter((c) => c.goalId !== id));
 
@@ -1090,7 +1127,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
         handleFirestoreError(error, OperationType.DELETE, `investments/${id}`);
       }
     },
-    [checkAdminPermission]
+    []
   );
 
   const addInvestmentContribution = useCallback(
@@ -1109,8 +1146,6 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
       notes?: string;
       createTransactionRecord?: boolean;
     }) => {
-      if (!checkAdminPermission()) return {} as InvestmentContribution;
-
       const contribDate = date || `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-15`;
       const contribId = `contrib-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
       const newContrib: InvestmentContribution = {
@@ -1139,7 +1174,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
 
       try {
         const docRef = doc(db, 'contributions', contribId);
-        await setDoc(docRef, newContrib);
+        await setDoc(docRef, sanitizeForFirestore(newContrib));
       } catch (error) {
         handleFirestoreError(error, OperationType.CREATE, `contributions/${contribId}`);
       }
@@ -1182,7 +1217,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
         setTransactions((prev) => [txObj, ...prev]);
 
         try {
-          await setDoc(doc(db, 'transactions', txId), txObj);
+          await setDoc(doc(db, 'transactions', txId), sanitizeForFirestore(txObj));
         } catch (e) {
           console.error('Error saving contribution transaction', e);
         }
@@ -1190,7 +1225,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
 
       return newContrib;
     },
-    [checkAdminPermission, investments, selectedMonth, selectedYear]
+    [investments, selectedMonth, selectedYear]
   );
 
   const deleteInvestmentContribution = useCallback(
