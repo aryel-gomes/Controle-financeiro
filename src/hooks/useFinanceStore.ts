@@ -209,12 +209,30 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
       collection(db, 'transactions'),
       (snapshot) => {
         setIsLiveConnected(true);
-        const items: Transaction[] = [];
+        setCloudQuotaExceeded(false);
+        const cloudItems: Transaction[] = [];
         snapshot.forEach((d) => {
-          items.push(d.data() as Transaction);
+          cloudItems.push(d.data() as Transaction);
         });
-        items.sort((a, b) => b.date.localeCompare(a.date));
-        setTransactions(items);
+
+        setTransactions((prev) => {
+          const cloudMap = new Map(cloudItems.map((item) => [item.id, item]));
+          const unsyncedLocal = prev.filter((p) => !cloudMap.has(p.id));
+
+          // If there are unsynced local items saved while offline, push them to Firestore
+          if (unsyncedLocal.length > 0 && isAdmin) {
+            const batch = writeBatch(db);
+            unsyncedLocal.forEach((tx) => {
+              batch.set(doc(db, 'transactions', tx.id), tx);
+            });
+            batch.commit().catch((err) => console.warn('Sync pending transactions error:', err));
+          }
+
+          const merged = [...cloudItems, ...unsyncedLocal];
+          merged.sort((a, b) => b.date.localeCompare(a.date));
+          return merged;
+        });
+
         setLastCloudSync(new Date());
         setIsCloudReady(true);
       },

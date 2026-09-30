@@ -160,12 +160,25 @@ export default function App() {
                 <strong>Modo Administrador Ativo:</strong> Todas as alterações feitas aqui são salvas no banco de dados e atualizam instantaneamente para qualquer dispositivo ou pessoa que abrir o site.
               </span>
             </div>
-            <button
-              onClick={() => setIsAdminModalOpen(true)}
-              className="text-emerald-400 hover:text-emerald-300 font-semibold underline text-[11px]"
-            >
-              Gerenciar Admin
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={async () => {
+                  await store.forceSyncToCloud();
+                  alert('Sincronização com a nuvem solicitada! Os dados deste aparelho foram transmitidos.');
+                }}
+                disabled={store.isCloudSyncing}
+                className="px-2 py-0.5 rounded bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/50 text-emerald-200 font-semibold text-[10px] transition-colors"
+                title="Envia todas as transações e cartões deste aparelho para a nuvem"
+              >
+                {store.isCloudSyncing ? 'Enviando...' : 'Forçar Envio para Nuvem ☁️'}
+              </button>
+              <button
+                onClick={() => setIsAdminModalOpen(true)}
+                className="text-emerald-400 hover:text-emerald-300 font-semibold underline text-[11px]"
+              >
+                Gerenciar Admin
+              </button>
+            </div>
           </div>
         </div>
       )}
