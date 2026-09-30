@@ -110,6 +110,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
   const [isLiveConnected, setIsLiveConnected] = useState<boolean>(false);
   const [isCloudReady, setIsCloudReady] = useState<boolean>(false);
   const [isCloudSyncing, setIsCloudSyncing] = useState<boolean>(false);
+  const [cloudQuotaExceeded, setCloudQuotaExceeded] = useState<boolean>(false);
   const [lastCloudSync, setLastCloudSync] = useState<Date | null>(null);
 
   // Sync to localStorage as offline fallback
@@ -219,6 +220,13 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
       },
       (error) => {
         console.warn('Firestore transactions error:', error);
+        const errObj = error as { message?: string; code?: string };
+        if (
+          errObj.message?.includes('Quota exceeded') ||
+          errObj.code === 'resource-exhausted'
+        ) {
+          setCloudQuotaExceeded(true);
+        }
         setIsLiveConnected(false);
         setIsCloudReady(true);
       }
@@ -1255,6 +1263,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
     // Realtime & Cloud status props
     isLiveConnected,
     isCloudReady,
+    cloudQuotaExceeded,
     isCloudActive: isAdmin,
     isCloudSyncing,
     lastCloudSync,

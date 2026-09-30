@@ -109,6 +109,30 @@ export default function App() {
         hasActiveAlerts={store.activeAlerts.length > 0}
       />
 
+      {/* Quota Exceeded Notification */}
+      {store.cloudQuotaExceeded && (
+        <div className="bg-amber-950/80 border-b border-amber-800/80 px-4 py-2.5 text-xs text-amber-200">
+          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="p-1 rounded-md bg-amber-500/20 text-amber-400 font-bold shrink-0">
+                ⚠️
+              </span>
+              <span>
+                <strong>Limite diário gratuito do Google Firestore atingido:</strong> A sincronização em tempo real entre aparelhos está temporariamente pausada pelo Google até a renovação diária da cota (à meia-noite). Seus dados locais continuam salvos no navegador.
+              </span>
+            </div>
+            <a
+              href="https://console.firebase.google.com/project/hopeful-parsec-5vr20/firestore/databases/ai-studio-finanplangestofi-e463e0bf-aaec-435f-9667-00c9aae03975/data?openUpgradeDialog=true"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-xs shrink-0 transition-colors"
+            >
+              Ver Cota / Upgrade no Firebase →
+            </a>
+          </div>
+        </div>
+      )}
+
       {/* Cloud Sync Status Strip (shows if offline/demo or syncing) */}
       {!store.isCloudActive ? (
         <div className="bg-slate-900/90 border-b border-slate-800 px-3 py-2 text-xs text-slate-300">
