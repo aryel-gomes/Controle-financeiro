@@ -133,71 +133,44 @@ export default function App() {
         </div>
       )}
 
-      {/* Cloud Sync Status Strip (shows if offline/demo or syncing) */}
-      {!store.isCloudActive ? (
-        <div className="bg-slate-900/90 border-b border-slate-800 px-3 py-2 text-xs text-slate-300">
-          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
-              <span>
-                <strong className="text-white">Modo Consulta (Dados em Nuvem):</strong> Conectado em tempo real com {store.transactions.length} lançamentos do banco de dados.
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={async () => {
-                  const ok = await store.refreshFromCloud();
-                  if (ok) {
-                    alert('Dados da nuvem recarregados com sucesso!');
-                  }
-                }}
-                disabled={store.isCloudSyncing}
-                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold transition-colors flex items-center gap-1.5"
-                title="Puxar dados atualizados do banco de dados na nuvem"
-              >
-                <span>🔄</span>
-                <span>{store.isCloudSyncing ? 'Atualizando...' : 'Recarregar da Nuvem'}</span>
-              </button>
-              <button
-                onClick={() => setIsAdminModalOpen(true)}
-                className="px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 font-semibold text-emerald-300 transition-colors"
-              >
-                Acessar como Admin para Editar →
-              </button>
-            </div>
+      {/* Cloud Sync Status Strip */}
+      <div className="bg-emerald-950/40 border-b border-emerald-900/50 px-3 py-1.5 text-xs text-emerald-300">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>
+              <strong className="text-white">Sincronização em Nuvem Ativa:</strong> Todas as alterações feitas aqui são salvas diretamente no banco de dados ({store.transactions.length} lançamentos).
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={async () => {
+                const ok = await store.refreshFromCloud();
+                if (ok) {
+                  alert('Dados da nuvem recarregados com sucesso!');
+                }
+              }}
+              disabled={store.isCloudSyncing}
+              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold text-xs transition-colors flex items-center gap-1.5"
+              title="Puxar dados atualizados do banco de dados na nuvem"
+            >
+              <span>🔄</span>
+              <span>{store.isCloudSyncing ? 'Atualizando...' : 'Recarregar da Nuvem'}</span>
+            </button>
+            <button
+              onClick={async () => {
+                await store.forceSyncToCloud();
+                alert('Sincronização com a nuvem concluída! Os dados deste aparelho foram transmitidos.');
+              }}
+              disabled={store.isCloudSyncing}
+              className="px-2.5 py-1 rounded-lg bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/50 text-emerald-200 font-semibold text-xs transition-colors"
+              title="Envia todas as transações e cartões deste aparelho para a nuvem"
+            >
+              {store.isCloudSyncing ? 'Enviando...' : 'Forçar Envio para Nuvem ☁️'}
+            </button>
           </div>
         </div>
-      ) : (
-        <div className="bg-emerald-950/40 border-b border-emerald-900/50 px-3 py-1.5 text-[11px] text-emerald-300">
-          <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>
-                <strong>Modo Administrador Ativo:</strong> Todas as alterações feitas aqui são salvas no banco de dados e atualizam instantaneamente para qualquer dispositivo ou pessoa que abrir o site.
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={async () => {
-                  await store.forceSyncToCloud();
-                  alert('Sincronização com a nuvem solicitada! Os dados deste aparelho foram transmitidos.');
-                }}
-                disabled={store.isCloudSyncing}
-                className="px-2 py-0.5 rounded bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/50 text-emerald-200 font-semibold text-[10px] transition-colors"
-                title="Envia todas as transações e cartões deste aparelho para a nuvem"
-              >
-                {store.isCloudSyncing ? 'Enviando...' : 'Forçar Envio para Nuvem ☁️'}
-              </button>
-              <button
-                onClick={() => setIsAdminModalOpen(true)}
-                className="text-emerald-400 hover:text-emerald-300 font-semibold underline text-[11px]"
-              >
-                Gerenciar Admin
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      </div>
 
       {/* 2. Spending Limit Warning Banner */}
       <AlertBanner
@@ -724,7 +697,7 @@ export default function App() {
         isOpen={isBudgetModalOpen}
         onClose={() => setIsBudgetModalOpen(false)}
         budgetLimits={store.budgetLimits}
-        onSaveLimits={(limits) => store.setBudgetLimits(limits)}
+        onSaveLimits={store.saveAllBudgetLimits}
       />
 
       <ExportImportModal

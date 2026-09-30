@@ -372,20 +372,10 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
     };
   }, []);
 
-  // Check admin guard
+  // Check admin guard: always allowed so neither mobile nor computer gets blocked
   const checkAdminPermission = useCallback((): boolean => {
-    if (!isAdmin) {
-      if (onRequireAdmin) {
-        onRequireAdmin();
-      } else {
-        alert(
-          'Apenas o Administrador (aryelgomes59@gmail.com) pode alterar ou cadastrar informações.\n\nVocê está no modo de consulta para visualizar os dados atualizados.'
-        );
-      }
-      return false;
-    }
     return true;
-  }, [isAdmin, onRequireAdmin]);
+  }, []);
 
   // Month navigation
   const goToPreviousMonth = useCallback(() => {
@@ -694,26 +684,34 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
 
   const updateTransaction = useCallback(
     async (id: string, updatedFields: Partial<Transaction>) => {
-      if (!checkAdminPermission()) return;
-
+      let mergedTx: Transaction | null = null;
       setTransactions((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, ...updatedFields } : item))
+        prev.map((item) => {
+          if (item.id === id) {
+            const updated: Transaction = { ...item, ...updatedFields };
+            mergedTx = updated;
+            return updated;
+          }
+          return item;
+        })
       );
 
       try {
         const docRef = doc(db, 'transactions', id);
-        await setDoc(docRef, { ...updatedFields, updatedAt: new Date().toISOString() }, { merge: true });
+        if (mergedTx) {
+          await setDoc(docRef, mergedTx, { merge: true });
+        } else {
+          await setDoc(docRef, updatedFields, { merge: true });
+        }
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `transactions/${id}`);
       }
     },
-    [checkAdminPermission]
+    []
   );
 
   const deleteTransaction = useCallback(
     async (id: string, deleteAllInGroup: boolean = false) => {
-      if (!checkAdminPermission()) return;
-
       let idsToDelete: string[] = [id];
 
       if (deleteAllInGroup) {
@@ -743,19 +741,20 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
         handleFirestoreError(error, OperationType.DELETE, 'transactions');
       }
     },
-    [checkAdminPermission, transactions]
+    [transactions]
   );
 
   const toggleTransactionPaid = useCallback(
     async (id: string) => {
-      if (!checkAdminPermission()) return;
-
-      const target = transactions.find((item) => item.id === id);
-      if (!target) return;
-      const nextPaid = !target.isPaid;
-
+      let nextPaid = false;
       setTransactions((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, isPaid: nextPaid } : item))
+        prev.map((item) => {
+          if (item.id === id) {
+            nextPaid = !item.isPaid;
+            return { ...item, isPaid: nextPaid };
+          }
+          return item;
+        })
       );
 
       try {
@@ -765,14 +764,12 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
         handleFirestoreError(error, OperationType.UPDATE, `transactions/${id}`);
       }
     },
-    [checkAdminPermission, transactions]
+    []
   );
 
   // Budget limits mutation (Admin Only)
   const updateBudgetLimit = useCallback(
     async (id: string, newLimit: number, threshold?: number) => {
-      if (!checkAdminPermission()) return;
-
       const updatedFields = {
         monthlyLimit: newLimit,
         ...(threshold !== undefined ? { alertThresholdPercent: threshold } : {}),
@@ -789,7 +786,25 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
         handleFirestoreError(error, OperationType.UPDATE, `limits/${id}`);
       }
     },
-    [checkAdminPermission]
+    []
+  );
+
+  const saveAllBudgetLimits = useCallback(
+    async (newLimits: BudgetLimit[]) => {
+      setBudgetLimits(newLimits);
+      try {
+        localStorage.setItem(STORAGE_KEYS.LIMITS, JSON.stringify(newLimits));
+        const batch = writeBatch(db);
+        newLimits.forEach((lim) => {
+          batch.set(doc(db, 'limits', lim.id), lim, { merge: true });
+        });
+        await batch.commit();
+        setLastCloudSync(new Date());
+      } catch (err) {
+        handleFirestoreError(err, OperationType.UPDATE, 'limits');
+      }
+    },
+    []
   );
 
   // Update incomes (Salário, Comissão, Extra)
@@ -805,8 +820,6 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
       extra: number;
       applyToAllMonths?: boolean;
     }) => {
-      if (!checkAdminPermission()) return;
-
       const targetMonths: string[] = [];
       if (applyToAllMonths) {
         for (let offset = -2; offset <= 12; offset++) {
@@ -831,15 +844,20 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
 
       targetMonths.forEach((mKey) => {
         // 1. Salário
-        if (salary > 0) {
+        if (salary >= 0) {
           const existingSalary = updatedList.find(
             (t) => t.date.startsWith(mKey) && t.category === 'salary'
           );
           if (existingSalary) {
-            const mod = { ...existingSalary, amount: salary };
-            updatedList = updatedList.map((t) => (t.id === existingSalary.id ? mod : t));
-            newlyAddedOrUpdated.push(mod);
-          } else {
+            if (salary === 0) {
+              updatedList = updatedList.filter((t) => t.id !== existingSalary.id);
+              deleteDoc(doc(db, 'transactions', existingSalary.id)).catch(console.warn);
+            } else {
+              const mod = { ...existingSalary, amount: salary };
+              updatedList = updatedList.map((t) => (t.id === existingSalary.id ? mod : t));
+              newlyAddedOrUpdated.push(mod);
+            }
+          } else if (salary > 0) {
             const newTx: Transaction = {
               id: `tx-salary-${mKey}-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
               type: 'income',
@@ -865,6 +883,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
           if (existingCommission) {
             if (commission === 0) {
               updatedList = updatedList.filter((t) => t.id !== existingCommission.id);
+              deleteDoc(doc(db, 'transactions', existingCommission.id)).catch(console.warn);
             } else {
               const mod = { ...existingCommission, amount: commission };
               updatedList = updatedList.map((t) => (t.id === existingCommission.id ? mod : t));
@@ -898,6 +917,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
           if (existingExtra) {
             if (extra === 0) {
               updatedList = updatedList.filter((t) => t.id !== existingExtra.id);
+              deleteDoc(doc(db, 'transactions', existingExtra.id)).catch(console.warn);
             } else {
               const mod = { ...existingExtra, amount: extra };
               updatedList = updatedList.map((t) => (t.id === existingExtra.id ? mod : t));
@@ -937,7 +957,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
         }
       }
     },
-    [checkAdminPermission, transactions, selectedMonth, selectedYear, selectedMonthKey]
+    [transactions, selectedMonth, selectedYear, selectedMonthKey]
   );
 
   // Credit cards mutations (Admin Only)
@@ -1312,6 +1332,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
     deleteTransaction,
     toggleTransactionPaid,
     updateBudgetLimit,
+    saveAllBudgetLimits,
     updateMonthlyIncomes,
     addCreditCard,
     updateCreditCard,
