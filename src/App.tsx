@@ -140,15 +140,31 @@ export default function App() {
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-400" />
               <span>
-                <strong className="text-white">Modo Consulta (Dados Atualizados):</strong> Você está vendo os dados reais em nuvem. Para adicionar ou editar lançamentos, conecte o Admin.
+                <strong className="text-white">Modo Consulta (Dados em Nuvem):</strong> Conectado em tempo real com {store.transactions.length} lançamentos do banco de dados.
               </span>
             </div>
-            <button
-              onClick={() => setIsAdminModalOpen(true)}
-              className="px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 font-semibold text-emerald-300 transition-colors"
-            >
-              Acessar como Admin para Editar →
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={async () => {
+                  const ok = await store.refreshFromCloud();
+                  if (ok) {
+                    alert('Dados da nuvem recarregados com sucesso!');
+                  }
+                }}
+                disabled={store.isCloudSyncing}
+                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold transition-colors flex items-center gap-1.5"
+                title="Puxar dados atualizados do banco de dados na nuvem"
+              >
+                <span>🔄</span>
+                <span>{store.isCloudSyncing ? 'Atualizando...' : 'Recarregar da Nuvem'}</span>
+              </button>
+              <button
+                onClick={() => setIsAdminModalOpen(true)}
+                className="px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 font-semibold text-emerald-300 transition-colors"
+              >
+                Acessar como Admin para Editar →
+              </button>
+            </div>
           </div>
         </div>
       ) : (

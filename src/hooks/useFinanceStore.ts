@@ -30,12 +30,32 @@ import {
 } from '../lib/firebase';
 
 const STORAGE_KEYS = {
-  TRANSACTIONS: 'finanplan_transactions_v2',
-  LIMITS: 'finanplan_budget_limits_v2',
-  CARDS: 'finanplan_credit_cards_v2',
-  INVESTMENTS: 'finanplan_investments_v2',
-  CONTRIBUTIONS: 'finanplan_contributions_v2',
+  TRANSACTIONS: 'finanplan_transactions_v3',
+  LIMITS: 'finanplan_budget_limits_v3',
+  CARDS: 'finanplan_credit_cards_v3',
+  INVESTMENTS: 'finanplan_investments_v3',
+  CONTRIBUTIONS: 'finanplan_contributions_v3',
 };
+
+// Purge any legacy storage keys that held old demo data
+try {
+  [
+    'finanplan_transactions',
+    'finanplan_transactions_v2',
+    'finanplan_budget_limits',
+    'finanplan_budget_limits_v2',
+    'finanplan_credit_cards',
+    'finanplan_credit_cards_v2',
+    'finanplan_investments',
+    'finanplan_investments_v2',
+    'finanplan_contributions',
+    'finanplan_contributions_v2',
+  ].forEach((key) => {
+    localStorage.removeItem(key);
+  });
+} catch {
+  // Ignore in case localStorage is restricted
+}
 
 export interface LimitAlert {
   id: string;
@@ -200,6 +220,52 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
     }
   }, [isAdmin, transactions, creditCards, budgetLimits, investments, contributions]);
 
+  // Pull fresh authoritative data directly from Firestore on demand
+  const refreshFromCloud = useCallback(async () => {
+    try {
+      setIsCloudSyncing(true);
+      const [txSnap, cardSnap, limSnap, invSnap, contribSnap] = await Promise.all([
+        getDocs(collection(db, 'transactions')),
+        getDocs(collection(db, 'cards')),
+        getDocs(collection(db, 'limits')),
+        getDocs(collection(db, 'investments')),
+        getDocs(collection(db, 'contributions')),
+      ]);
+
+      const txList: Transaction[] = [];
+      txSnap.forEach((d) => txList.push(d.data() as Transaction));
+      txList.sort((a, b) => b.date.localeCompare(a.date));
+      setTransactions(txList);
+
+      const cardList: CreditCard[] = [];
+      cardSnap.forEach((d) => cardList.push(d.data() as CreditCard));
+      setCreditCards(cardList);
+
+      const limList: BudgetLimit[] = [];
+      limSnap.forEach((d) => limList.push(d.data() as BudgetLimit));
+      setBudgetLimits(limList);
+
+      const invList: InvestmentGoal[] = [];
+      invSnap.forEach((d) => invList.push(d.data() as InvestmentGoal));
+      setInvestments(invList);
+
+      const cList: InvestmentContribution[] = [];
+      contribSnap.forEach((d) => cList.push(d.data() as InvestmentContribution));
+      cList.sort((a, b) => b.date.localeCompare(a.date));
+      setContributions(cList);
+
+      setLastCloudSync(new Date());
+      setIsLiveConnected(true);
+      setCloudQuotaExceeded(false);
+      return true;
+    } catch (err) {
+      console.error('Error refreshing from cloud:', err);
+      return false;
+    } finally {
+      setIsCloudSyncing(false);
+    }
+  }, []);
+
   // SHARED REALTIME SYNC VIA FIRESTORE onSnapshot (FOR EVERYONE: VISITORS & ADMIN)
   useEffect(() => {
     const unsubscribes: (() => void)[] = [];
@@ -214,25 +280,10 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
         snapshot.forEach((d) => {
           cloudItems.push(d.data() as Transaction);
         });
+        cloudItems.sort((a, b) => b.date.localeCompare(a.date));
 
-        setTransactions((prev) => {
-          const cloudMap = new Map(cloudItems.map((item) => [item.id, item]));
-          const unsyncedLocal = prev.filter((p) => !cloudMap.has(p.id));
-
-          // If there are unsynced local items saved while offline, push them to Firestore
-          if (unsyncedLocal.length > 0 && isAdmin) {
-            const batch = writeBatch(db);
-            unsyncedLocal.forEach((tx) => {
-              batch.set(doc(db, 'transactions', tx.id), tx);
-            });
-            batch.commit().catch((err) => console.warn('Sync pending transactions error:', err));
-          }
-
-          const merged = [...cloudItems, ...unsyncedLocal];
-          merged.sort((a, b) => b.date.localeCompare(a.date));
-          return merged;
-        });
-
+        // Authoritative synchronization: the shared cloud database is the single source of truth across all devices
+        setTransactions(cloudItems);
         setLastCloudSync(new Date());
         setIsCloudReady(true);
       },
@@ -1286,6 +1337,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
     isCloudSyncing,
     lastCloudSync,
     forceSyncToCloud: seedLocalToCloud,
+    refreshFromCloud,
     checkAdminPermission,
   };
 }
