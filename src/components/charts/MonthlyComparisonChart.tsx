@@ -25,26 +25,26 @@ export const MonthlyComparisonChart: React.FC<MonthlyComparisonChartProps> = ({
       : historyData[historyData.length - 1];
 
   return (
-    <div className="bg-[#121927] rounded-2xl border border-slate-800/80 p-5 flex flex-col justify-between shadow-sm">
+    <div className="bg-white dark:bg-[#121927] rounded-2xl border border-slate-200/80 dark:border-slate-800/80 p-5 flex flex-col justify-between shadow-xs transition-colors">
       {/* Header with Title and Mode Switch */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
         <div>
-          <h3 className="text-sm font-bold text-white">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white">
             Comparativo Mensal (Últimos 6 Meses)
           </h3>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Evolução de entradas, saídas e economia acumulada
           </p>
         </div>
 
         {/* View Mode Segmented Control */}
-        <div className="flex items-center gap-1 p-0.5 bg-slate-900 rounded-xl border border-slate-800 text-xs self-start sm:self-auto">
+        <div className="flex items-center gap-1 p-0.5 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-xs self-start sm:self-auto">
           <button
             onClick={() => setViewMode('balance')}
             className={`px-2.5 py-1 font-medium rounded-lg transition-all ${
               viewMode === 'balance'
-                ? 'bg-slate-800 text-white shadow-xs'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             Entradas x Saídas
@@ -53,8 +53,8 @@ export const MonthlyComparisonChart: React.FC<MonthlyComparisonChartProps> = ({
             onClick={() => setViewMode('expenses_breakdown')}
             className={`px-2.5 py-1 font-medium rounded-lg transition-all ${
               viewMode === 'expenses_breakdown'
-                ? 'bg-slate-800 text-white shadow-xs'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             Detalhamento Saídas
@@ -64,7 +64,7 @@ export const MonthlyComparisonChart: React.FC<MonthlyComparisonChartProps> = ({
 
       {/* SVG Bar Chart */}
       <div className="mt-6 h-52 relative flex items-end">
-        <div className="w-full h-full flex items-end justify-between gap-2 sm:gap-4 pt-4 pb-6 border-b border-slate-800">
+        <div className="w-full h-full flex items-end justify-between gap-2 sm:gap-4 pt-4 pb-6 border-b border-slate-100 dark:border-slate-800">
           {historyData.map((item, index) => {
             const isSelected = item.monthKey === selectedMonthKey;
             const isHovered = hoveredIndex === index;
@@ -128,15 +128,15 @@ export const MonthlyComparisonChart: React.FC<MonthlyComparisonChartProps> = ({
                 <div
                   className={`mt-2 text-xs font-mono tabular-nums text-center whitespace-nowrap transition-colors ${
                     isSelected
-                      ? 'font-bold text-emerald-400'
+                      ? 'font-bold text-emerald-600 dark:text-emerald-400'
                       : isHovered
-                      ? 'text-white font-medium'
-                      : 'text-slate-400'
+                      ? 'text-slate-900 dark:text-white font-medium'
+                      : 'text-slate-500 dark:text-slate-400'
                   }`}
                 >
                   {item.label}
                   {isSelected && (
-                    <span className="block w-1.5 h-1.5 bg-emerald-400 rounded-full mx-auto mt-0.5" />
+                    <span className="block w-1.5 h-1.5 bg-emerald-500 rounded-full mx-auto mt-0.5" />
                   )}
                 </div>
               </div>
@@ -146,21 +146,21 @@ export const MonthlyComparisonChart: React.FC<MonthlyComparisonChartProps> = ({
       </div>
 
       {/* Footer Info & Legend */}
-      <div className="mt-4 pt-3 border-t border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs">
+      <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs">
         {activeItem && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono tabular-nums text-xs">
-            <span className="font-semibold text-white">{activeItem.label}:</span>
-            <span className="text-emerald-400">
+            <span className="font-semibold text-slate-900 dark:text-white">{activeItem.label}:</span>
+            <span className="text-emerald-600 dark:text-emerald-400">
               +{formatCurrency(activeItem.totalIncome)}
             </span>
-            <span className="text-slate-600">·</span>
-            <span className="text-rose-400">
+            <span className="text-slate-300 dark:text-slate-600">·</span>
+            <span className="text-rose-600 dark:text-rose-400">
               -{formatCurrency(activeItem.totalExpense)}
             </span>
-            <span className="text-slate-600">·</span>
+            <span className="text-slate-300 dark:text-slate-600">·</span>
             <span
               className={
-                activeItem.netBalance >= 0 ? 'text-slate-200' : 'text-rose-400'
+                activeItem.netBalance >= 0 ? 'text-slate-800 dark:text-slate-200' : 'text-rose-600 dark:text-rose-400'
               }
             >
               Saldo: {formatCurrency(activeItem.netBalance)} ({formatPercent(activeItem.savingsRate, 0)})
@@ -168,7 +168,7 @@ export const MonthlyComparisonChart: React.FC<MonthlyComparisonChartProps> = ({
           </div>
         )}
 
-        <div className="flex items-center gap-3 text-slate-400 text-xs shrink-0">
+        <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 text-xs shrink-0">
           {viewMode === 'balance' ? (
             <>
               <div className="flex items-center gap-1.5">

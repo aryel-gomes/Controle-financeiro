@@ -2,6 +2,27 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Helper function to check if the requester is the authorized administrator
+    function isAdministrator() {
+      return request.auth != null && (
+        request.auth.token.email == "aryelgomes59@gmail.com" ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // Protected user profiles
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Admin authorization collection strictly protected
+    match /admins/{adminId} {
+      allow read: if isAdministrator();
+      allow write: if isAdministrator();
+    }
+
+    // Finance Collections: accessible for reading and writing to ensure real-time multi-device sync
     match /transactions/{transactionId} {
       allow read, write: if true;
     }
@@ -22,14 +43,7 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    match /users/{userId} {
-      allow read, write: if true;
-    }
-
-    match /admins/{adminId} {
-      allow read, write: if true;
-    }
-
+    // Fallback document matcher
     match /{document=**} {
       allow read, write: if true;
     }

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -8,9 +8,14 @@ import {
   Download,
   Wallet,
   Banknote,
-  Database,
+  Cloud,
+  Sun,
+  Moon,
+  MoreVertical,
+  RotateCcw,
 } from 'lucide-react';
 import { getMonthName } from '../utils/formatters';
+import { useTheme } from '../context/ThemeContext';
 
 interface HeaderProps {
   selectedMonth: number;
@@ -27,6 +32,7 @@ interface HeaderProps {
   activeTab: 'overview' | 'transactions' | 'cards' | 'investments' | 'budgets';
   setActiveTab: (tab: 'overview' | 'transactions' | 'cards' | 'investments' | 'budgets') => void;
   hasActiveAlerts: boolean;
+  onResetToZero?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -44,77 +50,82 @@ export const Header: React.FC<HeaderProps> = ({
   activeTab,
   setActiveTab,
   hasActiveAlerts,
+  onResetToZero,
 }) => {
+  const { theme, toggleTheme, setTheme } = useTheme();
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const isCurrentMonth = selectedYear === 2026 && selectedMonth === 8;
 
   return (
-    <header className="sticky top-0 z-30 bg-[#0B0F17]/95 backdrop-blur-md border-b border-slate-800 text-slate-100">
+    <header className="sticky top-0 z-30 bg-white/95 dark:bg-[#0B0F17]/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-        {/* Desktop Header Row (sm and above) */}
-        <div className="hidden sm:flex items-center justify-between h-16 gap-4">
-          {/* Zone 1: Brand Title */}
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+        {/* Main Desktop Header Bar */}
+        <div className="flex items-center justify-between h-16 gap-3">
+          {/* 1. Brand Logo & Title */}
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/15 dark:bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
               <Wallet className="w-5 h-5" strokeWidth={2.2} />
             </div>
             <div>
-              <span className="text-lg sm:text-xl font-bold tracking-tight text-white">
-                Controle financeiro
-              </span>
-              <span className="hidden sm:inline-block ml-2 text-xs font-medium text-slate-400">
-                Gestão Pessoal
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white">
+                  FinanPlan
+                </span>
+                <span className="hidden md:inline-block text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  Gestão Pessoal
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Zone 2: Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1 p-1 bg-slate-900/90 rounded-xl border border-slate-800">
+          {/* 2. Desktop Primary Navigation Tabs */}
+          <nav className="hidden md:flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-900/90 rounded-xl border border-slate-200/80 dark:border-slate-800/80">
             <button
               onClick={() => setActiveTab('overview')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
                 activeTab === 'overview'
-                  ? 'bg-slate-800 text-white shadow-xs'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               Visão Geral
             </button>
             <button
               onClick={() => setActiveTab('transactions')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
                 activeTab === 'transactions'
-                  ? 'bg-slate-800 text-white shadow-xs'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               Transações
             </button>
             <button
               onClick={() => setActiveTab('cards')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
                 activeTab === 'cards'
-                  ? 'bg-slate-800 text-white shadow-xs'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               Cartões
             </button>
             <button
               onClick={() => setActiveTab('investments')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
                 activeTab === 'investments'
-                  ? 'bg-slate-800 text-emerald-300 font-bold shadow-xs'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               Investimentos
             </button>
             <button
               onClick={() => setActiveTab('budgets')}
-              className={`relative px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
+              className={`relative px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
                 activeTab === 'budgets'
-                  ? 'bg-slate-800 text-white shadow-xs'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               Limites & Metas
@@ -124,237 +135,250 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </nav>
 
-          {/* Zone 3: Actions */}
-          <div className="flex items-center gap-2 sm:gap-2.5">
+          {/* 3. Actions: Month Navigator + Theme Toggle + Cloud + New Transaction */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
             {/* Period Navigator */}
-            <div className="flex items-center bg-slate-900/90 rounded-xl border border-slate-800 p-0.5">
+            <div className="flex items-center bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-0.5">
               <button
                 onClick={onPrevMonth}
                 aria-label="Mês anterior"
-                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 rounded-lg transition-colors"
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </button>
               <button
                 onClick={onCurrentMonth}
                 title={isCurrentMonth ? 'Mês atual' : 'Voltar para mês atual'}
-                className="px-2.5 py-1 text-xs font-medium text-slate-200 hover:text-emerald-400 font-mono tabular-nums flex items-center gap-1.5 transition-colors whitespace-nowrap"
+                className="px-2 sm:px-2.5 py-1 text-xs font-semibold font-mono tabular-nums text-slate-800 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 flex items-center gap-1 sm:gap-1.5 transition-colors whitespace-nowrap"
               >
-                <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                <span>
+                <Calendar className="w-3 h-3 text-slate-400" />
+                <span className="hidden sm:inline">
                   {getMonthName(selectedMonth)} {selectedYear}
+                </span>
+                <span className="sm:hidden">
+                  {getMonthName(selectedMonth).slice(0, 3)}/{String(selectedYear).slice(2)}
                 </span>
               </button>
               <button
                 onClick={onNextMonth}
                 aria-label="Próximo mês"
-                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 rounded-lg transition-colors"
               >
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </button>
             </div>
 
-            {/* Quick Income Config Button */}
+            {/* Explicit Theme Switch: Claro / Escuro */}
+            <div className="hidden sm:flex items-center bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-0.5">
+              <button
+                type="button"
+                onClick={() => setTheme('light')}
+                title="Ativar Tema Claro"
+                className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
+                  theme === 'light'
+                    ? 'bg-white text-amber-600 shadow-xs ring-1 ring-slate-200'
+                    : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                }`}
+              >
+                <Sun className="w-3.5 h-3.5 text-amber-500" />
+                <span>Claro</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTheme('dark')}
+                title="Ativar Tema Escuro"
+                className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
+                  theme === 'dark'
+                    ? 'bg-slate-800 text-amber-300 shadow-xs ring-1 ring-slate-700'
+                    : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                }`}
+              >
+                <Moon className="w-3.5 h-3.5 text-slate-400 dark:text-slate-300" />
+                <span>Escuro</span>
+              </button>
+            </div>
+
+            {/* Mobile Theme Toggle Button */}
             <button
-              onClick={onOpenIncomeModal}
-              title="Configurar Salário, Comissão e Extras"
-              className="p-2 text-slate-300 hover:text-emerald-400 hover:bg-slate-800 rounded-xl border border-slate-800 transition-colors hidden sm:flex items-center justify-center gap-1 text-xs font-medium"
+              type="button"
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Alternar para tema claro' : 'Alternar para tema escuro'}
+              aria-label="Alternar tema"
+              className="sm:hidden p-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-800 transition-colors flex items-center justify-center"
             >
-              <Banknote className="w-4 h-4 text-emerald-400" />
-              <span className="hidden lg:inline text-xs">Renda Mensal</span>
+              {theme === 'dark' ? (
+                <Sun className="w-4 h-4 text-amber-400" />
+              ) : (
+                <Moon className="w-4 h-4 text-slate-700" />
+              )}
             </button>
 
-            {/* Quick Limit Settings */}
-            <button
-              onClick={onOpenBudgetModal}
-              title="Ajustar limites de gastos"
-              className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-xl border border-slate-800 transition-colors hidden sm:flex items-center justify-center"
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-            </button>
-
-            {/* Admin Cloud Sync Button */}
+            {/* Cloud Sync Status Indicator */}
             <button
               onClick={onOpenAdminModal}
-              title="Acesso de Administrador e Sincronização em Tempo Real"
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all ${
-                isCloudActive
-                  ? 'bg-emerald-950/50 border-emerald-500/40 text-emerald-300 hover:bg-emerald-950/80 shadow-xs'
-                  : 'bg-amber-950/40 border-amber-500/40 text-amber-300 hover:bg-amber-950/70 shadow-xs'
-              }`}
+              title="Banco de dados na nuvem ativo e sincronizado"
+              className="p-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-800 transition-colors relative flex items-center justify-center"
             >
-              <Database className="w-3.5 h-3.5 text-emerald-400" />
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  isCloudActive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
-                }`}
-              />
-              <span className="hidden md:inline">
-                {isCloudActive ? 'Admin Sincronizado' : 'Conectar Admin'}
-              </span>
-              <span className="md:hidden">
-                {isCloudActive ? 'Nuvem' : 'Admin'}
-              </span>
+              <Cloud className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             </button>
 
-            {/* Export & Backup */}
-            <button
-              onClick={onOpenExportModal}
-              title="Exportar ou importar dados"
-              className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-xl border border-slate-800 transition-colors hidden sm:flex items-center justify-center"
-            >
-              <Download className="w-4 h-4" />
-            </button>
+            {/* Settings / More Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setIsMoreMenuOpen((v) => !v)}
+                title="Mais opções e configurações"
+                className="p-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-800 transition-colors flex items-center justify-center"
+              >
+                <MoreVertical className="w-4 h-4" />
+              </button>
 
-            {/* Primary Action: New Transaction */}
+              {isMoreMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsMoreMenuOpen(false)}
+                  />
+                  <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 py-2 z-50 animate-in fade-in zoom-in-95 duration-100 text-xs">
+                    <button
+                      onClick={() => {
+                        setIsMoreMenuOpen(false);
+                        onOpenIncomeModal();
+                      }}
+                      className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5 text-slate-700 dark:text-slate-200 transition-colors"
+                    >
+                      <Banknote className="w-4 h-4 text-emerald-500" />
+                      <span>Definir Salário & Renda</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setIsMoreMenuOpen(false);
+                        onOpenBudgetModal();
+                      }}
+                      className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5 text-slate-700 dark:text-slate-200 transition-colors"
+                    >
+                      <SlidersHorizontal className="w-4 h-4 text-amber-500" />
+                      <span>Configurar Limites de Gastos</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setIsMoreMenuOpen(false);
+                        onOpenExportModal();
+                      }}
+                      className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5 text-slate-700 dark:text-slate-200 transition-colors"
+                    >
+                      <Download className="w-4 h-4 text-blue-500" />
+                      <span>Exportar CSV / Backup</span>
+                    </button>
+
+                    <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+
+                    <button
+                      onClick={() => {
+                        setIsMoreMenuOpen(false);
+                        toggleTheme();
+                      }}
+                      className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5 text-slate-700 dark:text-slate-200 transition-colors"
+                    >
+                      {theme === 'dark' ? (
+                        <>
+                          <Sun className="w-4 h-4 text-amber-400" />
+                          <span>Mudar para Tema Claro</span>
+                        </>
+                      ) : (
+                        <>
+                          <Moon className="w-4 h-4 text-slate-700" />
+                          <span>Mudar para Tema Escuro</span>
+                        </>
+                      )}
+                    </button>
+
+                    {onResetToZero && (
+                      <button
+                        onClick={() => {
+                          setIsMoreMenuOpen(false);
+                          onResetToZero();
+                        }}
+                        className="w-full text-left px-4 py-2 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center gap-2.5 transition-colors"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                        <span>Zerar Dados</span>
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Primary Action Button: New Transaction */}
             <button
               onClick={onOpenNewTransaction}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 rounded-xl transition-all shadow-sm whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 rounded-xl transition-all shadow-xs whitespace-nowrap"
             >
               <Plus className="w-4 h-4" strokeWidth={2.5} />
-              <span>Nova Transação</span>
+              <span className="hidden sm:inline">Nova Transação</span>
+              <span className="sm:hidden">Nova</span>
             </button>
           </div>
         </div>
 
-        {/* Mobile Header (screen width < 640px) */}
-        <div className="sm:hidden py-2.5 space-y-2">
-          {/* Mobile Top Row: Brand + Month Switcher + Quick + Button */}
-          <div className="flex items-center justify-between gap-2">
-            {/* Brand Logo & Name */}
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
-                <Wallet className="w-4 h-4" strokeWidth={2.2} />
-              </div>
-              <span className="text-sm font-bold tracking-tight text-white truncate">
-                Controle financeiro
-              </span>
-            </div>
-
-            {/* Right: Period Navigator + New Transaction */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              {/* Compact Period Switcher */}
-              <div className="flex items-center bg-slate-900 rounded-xl border border-slate-800 p-0.5">
-                <button
-                  onClick={onPrevMonth}
-                  aria-label="Mês anterior"
-                  className="p-1.5 text-slate-400 hover:text-white transition-colors"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={onCurrentMonth}
-                  title="Mês atual"
-                  className="px-1.5 py-0.5 text-[11px] font-mono font-medium text-slate-200 tabular-nums whitespace-nowrap"
-                >
-                  {getMonthName(selectedMonth).slice(0, 3)}/{String(selectedYear).slice(2)}
-                </button>
-                <button
-                  onClick={onNextMonth}
-                  aria-label="Próximo mês"
-                  className="p-1.5 text-slate-400 hover:text-white transition-colors"
-                >
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              {/* + Nova Button */}
-              <button
-                onClick={onOpenNewTransaction}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl transition-all shadow-sm"
-              >
-                <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
-                <span>+ Nova</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Mobile Navigation Tabs: Horizontal Scroll */}
-          <div className="flex items-center overflow-x-auto pb-0.5 gap-1.5 scrollbar-none -mx-1 px-1">
-            <button
-              onClick={() => setActiveTab('overview')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-colors shrink-0 ${
-                activeTab === 'overview'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'text-slate-400 bg-slate-900 border border-slate-800 hover:text-white'
-              }`}
-            >
-              Visão Geral
-            </button>
-            <button
-              onClick={() => setActiveTab('transactions')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-colors shrink-0 ${
-                activeTab === 'transactions'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'text-slate-400 bg-slate-900 border border-slate-800 hover:text-white'
-              }`}
-            >
-              Transações
-            </button>
-            <button
-              onClick={() => setActiveTab('cards')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-colors shrink-0 ${
-                activeTab === 'cards'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'text-slate-400 bg-slate-900 border border-slate-800 hover:text-white'
-              }`}
-            >
-              Cartões
-            </button>
-            <button
-              onClick={() => setActiveTab('investments')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-colors shrink-0 ${
-                activeTab === 'investments'
-                  ? 'bg-emerald-600 text-white font-bold shadow-xs'
-                  : 'text-slate-400 bg-slate-900 border border-slate-800 hover:text-white'
-              }`}
-            >
-              Investimentos
-            </button>
-            <button
-              onClick={() => setActiveTab('budgets')}
-              className={`relative px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-colors shrink-0 ${
-                activeTab === 'budgets'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'text-slate-400 bg-slate-900 border border-slate-800 hover:text-white'
-              }`}
-            >
-              Limites & Metas
-              {hasActiveAlerts && (
-                <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-              )}
-            </button>
-            <button
-              onClick={onOpenIncomeModal}
-              className="px-2.5 py-1.5 text-xs font-medium rounded-xl whitespace-nowrap transition-colors text-emerald-400 bg-slate-900 border border-emerald-500/30 flex items-center gap-1 shrink-0"
-            >
-              <Banknote className="w-3.5 h-3.5" />
-              <span>Renda</span>
-            </button>
-            <button
-              onClick={onOpenExportModal}
-              className="px-2.5 py-1.5 text-xs font-medium rounded-xl whitespace-nowrap transition-colors text-slate-400 bg-slate-900 border border-slate-800 flex items-center gap-1 shrink-0"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Backup</span>
-            </button>
-            <button
-              onClick={onOpenAdminModal}
-              className={`px-2.5 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-colors flex items-center gap-1.5 shrink-0 ${
-                isCloudActive
-                  ? 'text-emerald-300 bg-emerald-950/50 border border-emerald-500/40'
-                  : 'text-amber-300 bg-amber-950/50 border border-amber-500/40'
-              }`}
-            >
-              <Database className="w-3.5 h-3.5 text-emerald-400" />
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${
-                  isCloudActive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
-                }`}
-              />
-              <span>{isCloudActive ? 'Admin Nuvem' : 'Entrar Admin'}</span>
-            </button>
-          </div>
+        {/* Mobile Navigation Tabs (Scrollable Bar) */}
+        <div className="md:hidden flex items-center overflow-x-auto py-2 gap-1.5 scrollbar-none -mx-1 px-1 border-t border-slate-200/60 dark:border-slate-800/60">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-colors shrink-0 ${
+              activeTab === 'overview'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800'
+            }`}
+          >
+            Visão Geral
+          </button>
+          <button
+            onClick={() => setActiveTab('transactions')}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-colors shrink-0 ${
+              activeTab === 'transactions'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800'
+            }`}
+          >
+            Transações
+          </button>
+          <button
+            onClick={() => setActiveTab('cards')}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-colors shrink-0 ${
+              activeTab === 'cards'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800'
+            }`}
+          >
+            Cartões
+          </button>
+          <button
+            onClick={() => setActiveTab('investments')}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-colors shrink-0 ${
+              activeTab === 'investments'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800'
+            }`}
+          >
+            Investimentos
+          </button>
+          <button
+            onClick={() => setActiveTab('budgets')}
+            className={`relative px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-colors shrink-0 ${
+              activeTab === 'budgets'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800'
+            }`}
+          >
+            Limites
+            {hasActiveAlerts && (
+              <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+            )}
+          </button>
         </div>
       </div>
     </header>

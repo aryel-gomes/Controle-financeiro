@@ -265,17 +265,17 @@ export const InvestmentManager: React.FC<InvestmentManagerProps> = ({
   return (
     <div className="space-y-5">
       {/* Top Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4 bg-[#121927] p-4 sm:p-5 rounded-2xl border border-slate-800/80 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4 bg-white dark:bg-[#121927] p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs transition-colors">
         <div>
           <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+            <span className="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
               <PiggyBank className="w-4 sm:w-5 h-4 sm:h-5" />
             </span>
-            <h2 className="text-sm sm:text-base font-bold text-white">
+            <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
               Investimentos & Guardar Dinheiro
             </h2>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Organize suas reservas, caixinhas e aplicações financeiras para construir seu patrimônio
           </p>
         </div>
@@ -284,16 +284,16 @@ export const InvestmentManager: React.FC<InvestmentManagerProps> = ({
           {investments.length > 0 && (
             <button
               onClick={() => handleOpenAction(investments[0], 'deposit')}
-              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-emerald-300 bg-emerald-950/50 hover:bg-emerald-950/80 border border-emerald-500/30 rounded-xl transition-colors shadow-sm whitespace-nowrap"
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-500/30 rounded-xl transition-colors shadow-xs whitespace-nowrap"
             >
-              <ArrowDownLeft className="w-4 h-4 text-emerald-400" />
+              <ArrowDownLeft className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               <span>+ Guardar</span>
             </button>
           )}
 
           <button
             onClick={handleOpenAddGoal}
-            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 rounded-xl transition-colors shadow-sm whitespace-nowrap"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 rounded-xl transition-colors shadow-xs whitespace-nowrap"
           >
             <Plus className="w-4 h-4" />
             <span>+ Nova Meta</span>
@@ -304,57 +304,57 @@ export const InvestmentManager: React.FC<InvestmentManagerProps> = ({
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Total Guardado */}
-        <div className="bg-[#121927] p-4.5 rounded-2xl border border-slate-800/80 space-y-2">
+        <div className="bg-white dark:bg-[#121927] p-4.5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 space-y-2 shadow-xs transition-colors">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-400 font-medium">Patrimônio Guardado</span>
-            <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Patrimônio Guardado</span>
+            <span className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
               <PiggyBank className="w-4 h-4" />
             </span>
           </div>
-          <div className="text-2xl font-bold font-mono tabular-nums text-white">
+          <div className="text-2xl font-bold font-mono tabular-nums text-slate-900 dark:text-white">
             {formatCurrency(totalInvested)}
           </div>
-          <div className="flex items-center justify-between text-xs text-slate-400 pt-1 border-t border-slate-800/60">
+          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800/60">
             <span>Meta Total:</span>
-            <span className="font-mono tabular-nums text-slate-300">
+            <span className="font-mono tabular-nums text-slate-700 dark:text-slate-300">
               {formatCurrency(totalTargetInvested)}
             </span>
           </div>
         </div>
 
         {/* Card 2: Aportado neste Mês */}
-        <div className="bg-[#121927] p-4.5 rounded-2xl border border-slate-800/80 space-y-2">
+        <div className="bg-white dark:bg-[#121927] p-4.5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 space-y-2 shadow-xs transition-colors">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-400 font-medium">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
               Aporte Líquido ({selectedMonthName.split(' ')[0]})
             </span>
-            <span className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400">
+            <span className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400">
               <ArrowDownLeft className="w-4 h-4" />
             </span>
           </div>
-          <div className="text-2xl font-bold font-mono tabular-nums text-emerald-400">
+          <div className="text-2xl font-bold font-mono tabular-nums text-emerald-600 dark:text-emerald-400">
             {monthInvestedNet >= 0 ? '+' : ''} {formatCurrency(monthInvestedNet)}
           </div>
-          <div className="flex items-center justify-between text-xs text-slate-400 pt-1 border-t border-slate-800/60">
+          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800/60">
             <span>Movimentações no mês:</span>
-            <span className="font-mono tabular-nums text-slate-300">
+            <span className="font-mono tabular-nums text-slate-700 dark:text-slate-300">
               {contributions.filter((c) => c.date.startsWith(selectedMonthName)).length || contributions.length} lançamentos
             </span>
           </div>
         </div>
 
         {/* Card 3: Progresso Geral */}
-        <div className="bg-[#121927] p-4.5 rounded-2xl border border-slate-800/80 space-y-2">
+        <div className="bg-white dark:bg-[#121927] p-4.5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 space-y-2 shadow-xs transition-colors">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-400 font-medium">Conclusão das Metas</span>
-            <span className="p-1.5 rounded-lg bg-purple-500/10 text-purple-400">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Conclusão das Metas</span>
+            <span className="p-1.5 rounded-lg bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400">
               <Percent className="w-4 h-4" />
             </span>
           </div>
-          <div className="text-2xl font-bold font-mono tabular-nums text-white">
+          <div className="text-2xl font-bold font-mono tabular-nums text-slate-900 dark:text-white">
             {formatPercent(overallProgressPercent)}
           </div>
-          <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+          <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
             <div
               className="bg-emerald-500 h-full rounded-full transition-all duration-300"
               style={{ width: `${Math.min(100, overallProgressPercent)}%` }}
@@ -363,20 +363,20 @@ export const InvestmentManager: React.FC<InvestmentManagerProps> = ({
         </div>
 
         {/* Card 4: Rendimento Estimado */}
-        <div className="bg-[#121927] p-4.5 rounded-2xl border border-slate-800/80 space-y-2">
+        <div className="bg-white dark:bg-[#121927] p-4.5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 space-y-2 shadow-xs transition-colors">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-400 font-medium">Rendimento Estimado</span>
-            <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Rendimento Estimado</span>
+            <span className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400">
               <TrendingUp className="w-4 h-4" />
             </span>
           </div>
-          <div className="text-2xl font-bold font-mono tabular-nums text-amber-300">
+          <div className="text-2xl font-bold font-mono tabular-nums text-amber-600 dark:text-amber-300">
             ~{formatCurrency(estimatedMonthlyYield)}
             <span className="text-xs font-normal text-slate-400 ml-1">/mês</span>
           </div>
-          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800/60">
+          <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800/60">
             <span>Base 100% CDI:</span>
-            <span className="text-slate-300">~10,75% a.a.</span>
+            <span className="text-slate-700 dark:text-slate-300">~10,75% a.a.</span>
           </div>
         </div>
       </div>
@@ -388,7 +388,7 @@ export const InvestmentManager: React.FC<InvestmentManagerProps> = ({
           className={`px-3 py-1.5 text-xs font-semibold rounded-xl border transition-colors whitespace-nowrap ${
             selectedCategoryFilter === 'all'
               ? 'bg-emerald-600 text-white border-emerald-500 shadow-xs'
-              : 'bg-[#121927] text-slate-400 border-slate-800 hover:text-white hover:border-slate-700'
+              : 'bg-white dark:bg-[#121927] text-slate-600 dark:text-slate-400 border-slate-200/80 dark:border-slate-800 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
           Todas as Metas ({investments.length})
@@ -405,13 +405,13 @@ export const InvestmentManager: React.FC<InvestmentManagerProps> = ({
               onClick={() => setSelectedCategoryFilter(catKey)}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border transition-colors whitespace-nowrap ${
                 selectedCategoryFilter === catKey
-                  ? 'bg-slate-800 text-white border-slate-600 shadow-xs'
-                  : 'bg-[#121927] text-slate-400 border-slate-800 hover:text-white hover:border-slate-700'
+                  ? 'bg-slate-800 text-white border-slate-700 shadow-xs'
+                  : 'bg-white dark:bg-[#121927] text-slate-600 dark:text-slate-400 border-slate-200/80 dark:border-slate-800 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
               <span>{catMeta.label}</span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-slate-800/80 text-slate-300">
+              <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300">
                 {count}
               </span>
             </button>
@@ -430,7 +430,7 @@ export const InvestmentManager: React.FC<InvestmentManagerProps> = ({
           return (
             <div
               key={goal.id}
-              className="bg-[#121927] border border-slate-800/80 hover:border-slate-700 rounded-2xl p-5 flex flex-col justify-between transition-all group shadow-sm"
+              className="bg-white dark:bg-[#121927] border border-slate-200/80 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700 rounded-2xl p-5 flex flex-col justify-between transition-all group shadow-xs"
             >
               <div className="space-y-3.5">
                 {/* Header */}
@@ -447,7 +447,7 @@ export const InvestmentManager: React.FC<InvestmentManagerProps> = ({
                       <Icon className="w-5 h-5" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                         {goal.name}
                       </h3>
                       <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
@@ -563,17 +563,17 @@ export const InvestmentManager: React.FC<InvestmentManagerProps> = ({
 
       {/* Empty State */}
       {filteredGoals.length === 0 && (
-        <div className="bg-[#121927] border border-dashed border-slate-800 rounded-2xl p-10 text-center space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 mx-auto flex items-center justify-center">
+        <div className="bg-white dark:bg-[#121927] border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-10 text-center space-y-3 shadow-xs transition-colors">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 mx-auto flex items-center justify-center">
             <PiggyBank className="w-6 h-6" />
           </div>
-          <h3 className="text-sm font-bold text-white">Nenhum investimento cadastrado nesta categoria</h3>
-          <p className="text-xs text-slate-400 max-w-md mx-auto">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white">Nenhum investimento cadastrado nesta categoria</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
             Comece criando sua Reserva de Emergência, Caixinha do Nubank/Inter ou uma meta para guardar dinheiro.
           </p>
           <button
             onClick={handleOpenAddGoal}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl transition-colors"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl transition-colors shadow-xs"
           >
             <Plus className="w-4 h-4" />
             <span>+ Criar Primeira Meta</span>
@@ -582,27 +582,27 @@ export const InvestmentManager: React.FC<InvestmentManagerProps> = ({
       )}
 
       {/* Recent Movements / Contributions Ledger */}
-      <div className="bg-[#121927] rounded-2xl border border-slate-800/80 shadow-sm overflow-hidden">
-        <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between">
+      <div className="bg-white dark:bg-[#121927] rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs overflow-hidden transition-colors">
+        <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-bold text-white">Histórico de Aportes & Resgates</h3>
-            <p className="text-xs text-slate-400">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Histórico de Aportes & Resgates</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Registro das movimentações de dinheiro guardado
             </p>
           </div>
-          <span className="text-xs font-mono text-slate-400">
+          <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
             {contributions.length} movimentações registradas
           </span>
         </div>
 
         {contributions.length === 0 ? (
-          <div className="p-8 text-center text-xs text-slate-400">
+          <div className="p-8 text-center text-xs text-slate-400 dark:text-slate-500">
             Nenhum aporte ou resgate registrado ainda.
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-300">
-              <thead className="bg-slate-900/60 text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-800">
+            <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
+              <thead className="bg-slate-50 dark:bg-slate-900/60 text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                 <tr>
                   <th className="py-2.5 px-4">Tipo</th>
                   <th className="py-2.5 px-4">Meta / Destino</th>
@@ -612,7 +612,7 @@ export const InvestmentManager: React.FC<InvestmentManagerProps> = ({
                   <th className="py-2.5 px-4 text-center">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                 {contributions.map((c) => {
                   const targetGoal = investments.find((g) => g.id === c.goalId);
                   const isDeposit = c.type === 'deposit';
@@ -676,18 +676,18 @@ export const InvestmentManager: React.FC<InvestmentManagerProps> = ({
 
       {/* MODAL 1: Nova Meta / Editar Meta */}
       {isGoalModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-[#121927] border border-slate-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-800 bg-[#0F172A]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 text-slate-900 dark:text-slate-100">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60">
               <div className="flex items-center gap-2">
-                <PiggyBank className="w-5 h-5 text-emerald-400" />
-                <h3 className="text-sm font-bold text-white">
+                <PiggyBank className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                   {editingGoal ? 'Editar Meta / Investimento' : 'Nova Meta para Guardar Dinheiro'}
                 </h3>
               </div>
               <button
                 onClick={() => setIsGoalModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -695,14 +695,14 @@ export const InvestmentManager: React.FC<InvestmentManagerProps> = ({
 
             <form onSubmit={handleSaveGoal} className="p-4 sm:p-5 space-y-4">
               {goalFormError && (
-                <div className="p-3 text-xs bg-rose-950/60 border border-rose-500/40 text-rose-300 rounded-xl">
+                <div className="p-3 text-xs bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-500/40 text-rose-700 dark:text-rose-300 rounded-xl">
                   {goalFormError}
                 </div>
               )}
 
               {/* Goal Name */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Nome da Meta / Aplicação *
                 </label>
                 <input
@@ -711,20 +711,20 @@ export const InvestmentManager: React.FC<InvestmentManagerProps> = ({
                   value={goalName}
                   onChange={(e) => setGoalName(e.target.value)}
                   placeholder="Ex: Reserva de Emergência, Viagem Disney, Tesouro Selic..."
-                  className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
+                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
                 />
               </div>
 
               {/* Category & Institution */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Categoria *
                   </label>
                   <select
                     value={goalCategory}
                     onChange={(e) => setGoalCategory(e.target.value as InvestmentCategory)}
-                    className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
                   >
                     <option value="emergency">Reserva de Emergência</option>
                     <option value="cdb_fixed">Renda Fixa / CDB / Tesouro</option>
@@ -851,27 +851,27 @@ export const InvestmentManager: React.FC<InvestmentManagerProps> = ({
 
       {/* MODAL 2: Guardar Dinheiro (Aporte) / Resgatar */}
       {isDepositModalOpen && selectedGoalForAction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-[#121927] border border-slate-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-800 bg-[#0F172A]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 text-slate-900 dark:text-slate-100">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60">
               <div className="flex items-center gap-2">
                 {actionType === 'deposit' ? (
-                  <ArrowDownLeft className="w-5 h-5 text-emerald-400" />
+                  <ArrowDownLeft className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                 ) : (
-                  <ArrowUpRight className="w-5 h-5 text-amber-400" />
+                  <ArrowUpRight className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                 )}
                 <div>
-                  <h3 className="text-sm font-bold text-white">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                     {actionType === 'deposit' ? 'Guardar Dinheiro (Aporte)' : 'Resgatar Valor'}
                   </h3>
-                  <p className="text-[11px] text-slate-400">
-                    Meta: <span className="text-white font-semibold">{selectedGoalForAction.name}</span>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Meta: <span className="text-slate-900 dark:text-white font-semibold">{selectedGoalForAction.name}</span>
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setIsDepositModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -879,13 +879,13 @@ export const InvestmentManager: React.FC<InvestmentManagerProps> = ({
 
             <form onSubmit={handleSaveContribution} className="p-4 sm:p-5 space-y-4">
               {actionFormError && (
-                <div className="p-3 text-xs bg-rose-950/60 border border-rose-500/40 text-rose-300 rounded-xl">
+                <div className="p-3 text-xs bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-500/40 text-rose-700 dark:text-rose-300 rounded-xl">
                   {actionFormError}
                 </div>
               )}
 
               {/* Type toggle */}
-              <div className="grid grid-cols-2 gap-2 p-1 bg-slate-950 rounded-xl border border-slate-800">
+              <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setActionType('deposit')}

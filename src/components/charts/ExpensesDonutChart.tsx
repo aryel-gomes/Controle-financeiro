@@ -22,7 +22,7 @@ export const ExpensesDonutChart: React.FC<ExpensesDonutChartProps> = ({
       value: summary.creditCardExpense,
       color: '#a855f7', // purple-500
       hoverColor: '#c084fc',
-      textColor: 'text-purple-400',
+      textColor: 'text-purple-600 dark:text-purple-400',
     },
     {
       id: 'fixed_debt',
@@ -30,7 +30,7 @@ export const ExpensesDonutChart: React.FC<ExpensesDonutChartProps> = ({
       value: summary.fixedDebtExpense,
       color: '#f59e0b', // amber-500
       hoverColor: '#fbbf24',
-      textColor: 'text-amber-400',
+      textColor: 'text-amber-600 dark:text-amber-400',
     },
     {
       id: 'general_expenses',
@@ -38,7 +38,7 @@ export const ExpensesDonutChart: React.FC<ExpensesDonutChartProps> = ({
       value: summary.generalExpense,
       color: '#f43f5e', // rose-500
       hoverColor: '#fb7185',
-      textColor: 'text-rose-400',
+      textColor: 'text-rose-600 dark:text-rose-400',
     },
   ];
 
@@ -48,30 +48,30 @@ export const ExpensesDonutChart: React.FC<ExpensesDonutChartProps> = ({
   const circumference = 2 * Math.PI * radius;
 
   return (
-    <div className="bg-[#121927] rounded-2xl border border-slate-800/80 p-5 flex flex-col justify-between shadow-sm">
+    <div className="bg-white dark:bg-[#121927] rounded-2xl border border-slate-200/80 dark:border-slate-800/80 p-4 sm:p-5 flex flex-col justify-between shadow-xs transition-colors">
       <div>
-        <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
           <div>
-            <h3 className="text-sm font-bold text-white">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
               Distribuição das Saídas
             </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Cartão x Dívidas Fixas x Gastos Variáveis
             </p>
           </div>
-          <span className="text-xs font-mono font-medium text-slate-300 tabular-nums">
+          <span className="text-xs font-mono font-medium text-slate-700 dark:text-slate-300 tabular-nums">
             Total: {formatCurrency(total)}
           </span>
         </div>
 
         {total === 0 ? (
-          <div className="h-52 flex flex-col items-center justify-center text-slate-500 text-xs">
+          <div className="h-44 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 text-xs">
             Nenhuma despesa registrada neste mês.
           </div>
         ) : (
-          <div className="py-4 flex flex-col sm:flex-row items-center justify-center gap-6">
+          <div className="py-3 flex flex-col sm:flex-row items-center justify-center gap-5">
             {/* SVG Donut */}
-            <div className="relative w-44 h-44 shrink-0 flex items-center justify-center">
+            <div className="relative w-40 h-40 shrink-0 flex items-center justify-center">
               <svg className="w-full h-full -rotate-90" viewBox="0 0 200 200">
                 {slices.map((slice) => {
                   const percent = total > 0 ? slice.value / total : 0;
@@ -102,20 +102,20 @@ export const ExpensesDonutChart: React.FC<ExpensesDonutChartProps> = ({
               </svg>
 
               {/* Center Stat */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none px-4">
-                <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none px-3">
+                <span className="text-[10px] uppercase font-semibold text-slate-500 dark:text-slate-400 tracking-wider">
                   {hoveredSlice
                     ? slices.find((s) => s.id === hoveredSlice)?.label
                     : 'Total Saídas'}
                 </span>
-                <span className="text-sm font-bold font-mono tabular-nums text-white mt-0.5">
+                <span className="text-sm font-bold font-mono tabular-nums text-slate-900 dark:text-white mt-0.5">
                   {formatCurrency(
                     hoveredSlice
                       ? slices.find((s) => s.id === hoveredSlice)?.value || 0
                       : total
                   )}
                 </span>
-                <span className="text-[11px] font-mono tabular-nums text-slate-400">
+                <span className="text-[11px] font-mono tabular-nums text-slate-500 dark:text-slate-400">
                   {formatPercent(
                     total > 0
                       ? ((hoveredSlice
@@ -144,28 +144,28 @@ export const ExpensesDonutChart: React.FC<ExpensesDonutChartProps> = ({
                     onClick={() => onFilterCategory && onFilterCategory(slice.id)}
                     className={`p-2.5 rounded-xl cursor-pointer transition-colors border ${
                       isHovered
-                        ? 'bg-slate-800/80 border-slate-700'
-                        : 'border-slate-800/60 bg-slate-900/50 hover:bg-slate-800/50'
+                        ? 'bg-slate-100 dark:bg-slate-800/80 border-slate-300 dark:border-slate-700'
+                        : 'border-slate-200 dark:border-slate-800/60 bg-slate-50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-800/50'
                     }`}
                   >
                     <div className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2">
                         <span
-                          className="w-2.5 h-2.5 rounded-full"
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
                           style={{ backgroundColor: slice.color }}
                         />
-                        <span className="font-semibold text-slate-200">
+                        <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">
                           {slice.label}
                         </span>
                       </div>
-                      <span className="font-mono tabular-nums font-bold text-white">
+                      <span className="font-mono tabular-nums font-bold text-slate-900 dark:text-white">
                         {formatCurrency(slice.value)}
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between mt-1 text-[11px] text-slate-400">
+                    <div className="flex items-center justify-between mt-1 text-[11px] text-slate-500 dark:text-slate-400">
                       <span>Representatividade</span>
-                      <span className="font-mono tabular-nums font-semibold text-slate-300">
+                      <span className="font-mono tabular-nums font-semibold text-slate-700 dark:text-slate-300">
                         {formatPercent(percent, 1)}
                       </span>
                     </div>

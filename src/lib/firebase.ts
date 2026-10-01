@@ -21,8 +21,13 @@ import {
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase securely (API key override supported via env)
+const secureConfig = {
+  ...firebaseConfig,
+  apiKey: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_API_KEY) || firebaseConfig.apiKey,
+};
+
+const app = initializeApp(secureConfig);
 
 // CRITICAL: The app will break without this explicit firestoreDatabaseId parameter
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);

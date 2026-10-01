@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check, Banknote, TrendingUp, Sparkles, Calendar, CheckSquare, Square } from 'lucide-react';
+import { X, Check, Banknote, TrendingUp, Sparkles, CheckSquare, Square } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 
 interface IncomeConfigModalProps {
@@ -59,29 +59,29 @@ export const IncomeConfigModal: React.FC<IncomeConfigModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-black/75 backdrop-blur-xs">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-black/70 backdrop-blur-xs">
       <div
-        className="bg-slate-900 border border-slate-800 text-slate-100 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150"
         role="dialog"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-800 bg-slate-950/60">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 shrink-0">
+            <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
               <Banknote className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-sm sm:text-base font-bold text-white truncate">
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">
                 Definir Entradas & Renda
               </h3>
-              <p className="text-[11px] sm:text-xs text-slate-400 truncate">
+              <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">
                 Configure salário, comissões e extras
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -92,14 +92,14 @@ export const IncomeConfigModal: React.FC<IncomeConfigModalProps> = ({
           {/* 1. Salário Fixo */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs">
-              <label className="font-semibold text-slate-200 flex items-center gap-1.5">
+              <label className="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500" />
                 <span>Salário Fixo Mensal</span>
               </label>
               <span className="text-[11px] text-slate-400">Principal</span>
             </div>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-mono font-bold text-slate-500">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-mono font-bold text-slate-400">
                 R$
               </span>
               <input
@@ -108,7 +108,7 @@ export const IncomeConfigModal: React.FC<IncomeConfigModalProps> = ({
                 value={salaryStr}
                 onChange={(e) => setSalaryStr(e.target.value)}
                 placeholder="6.500,00"
-                className="w-full pl-9 pr-3 py-2 text-xs font-mono font-bold tabular-nums bg-slate-950/80 border border-slate-800 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
+                className="w-full pl-9 pr-3 py-2 text-xs font-mono font-bold tabular-nums bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
               />
             </div>
           </div>
@@ -116,14 +116,14 @@ export const IncomeConfigModal: React.FC<IncomeConfigModalProps> = ({
           {/* 2. Comissões Previstas */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs">
-              <label className="font-semibold text-slate-200 flex items-center gap-1.5">
-                <TrendingUp className="w-3.5 h-3.5 text-teal-400" />
+              <label className="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                <TrendingUp className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
                 <span>Comissões de Vendas / Metas</span>
               </label>
               <span className="text-[11px] text-slate-400">Variável</span>
             </div>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-mono font-bold text-slate-500">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-mono font-bold text-slate-400">
                 R$
               </span>
               <input
@@ -132,7 +132,7 @@ export const IncomeConfigModal: React.FC<IncomeConfigModalProps> = ({
                 value={commissionStr}
                 onChange={(e) => setCommissionStr(e.target.value)}
                 placeholder="1.950,00"
-                className="w-full pl-9 pr-3 py-2 text-xs font-mono font-bold tabular-nums bg-slate-950/80 border border-slate-800 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
+                className="w-full pl-9 pr-3 py-2 text-xs font-mono font-bold tabular-nums bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
               />
             </div>
           </div>
@@ -140,14 +140,14 @@ export const IncomeConfigModal: React.FC<IncomeConfigModalProps> = ({
           {/* 3. Renda Extra / Freelance */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs">
-              <label className="font-semibold text-slate-200 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+              <label className="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
                 <span>Renda Extra / Freelance / Outros</span>
               </label>
               <span className="text-[11px] text-slate-400">Opcional</span>
             </div>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-mono font-bold text-slate-500">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-mono font-bold text-slate-400">
                 R$
               </span>
               <input
@@ -156,15 +156,15 @@ export const IncomeConfigModal: React.FC<IncomeConfigModalProps> = ({
                 value={extraStr}
                 onChange={(e) => setExtraStr(e.target.value)}
                 placeholder="650,00"
-                className="w-full pl-9 pr-3 py-2 text-xs font-mono font-bold tabular-nums bg-slate-950/80 border border-slate-800 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
+                className="w-full pl-9 pr-3 py-2 text-xs font-mono font-bold tabular-nums bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
               />
             </div>
           </div>
 
           {/* Total Preview */}
-          <div className="p-3 bg-slate-950/90 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
-            <span className="text-slate-400 font-medium">Total de Entradas Previsto:</span>
-            <span className="text-base font-bold font-mono tabular-nums text-emerald-400">
+          <div className="p-3 bg-slate-50 dark:bg-slate-950/90 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
+            <span className="text-slate-500 dark:text-slate-400 font-medium">Total de Entradas Previsto:</span>
+            <span className="text-base font-bold font-mono tabular-nums text-emerald-600 dark:text-emerald-400">
               {formatCurrency(totalProjected)}
             </span>
           </div>
@@ -172,20 +172,20 @@ export const IncomeConfigModal: React.FC<IncomeConfigModalProps> = ({
           {/* Checkbox: Apply to all months */}
           <div
             onClick={() => setApplyToAllMonths(!applyToAllMonths)}
-            className="p-3 rounded-xl border border-emerald-500/30 bg-emerald-950/20 hover:bg-emerald-950/30 transition-colors cursor-pointer flex items-start gap-2.5 text-xs"
+            className="p-3 rounded-xl border border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/20 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors cursor-pointer flex items-start gap-2.5 text-xs"
           >
-            <div className="text-emerald-400 mt-0.5">
+            <div className="text-emerald-600 dark:text-emerald-400 mt-0.5">
               {applyToAllMonths ? (
-                <CheckSquare className="w-4 h-4 text-emerald-400" />
+                <CheckSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               ) : (
-                <Square className="w-4 h-4 text-slate-500" />
+                <Square className="w-4 h-4 text-slate-400" />
               )}
             </div>
             <div>
-              <span className="font-bold text-white block">
+              <span className="font-bold text-slate-900 dark:text-white block">
                 Repetir estes valores em todos os meses futuros
               </span>
-              <span className="text-[11px] text-slate-400 mt-0.5 block">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 block">
                 {applyToAllMonths
                   ? '✓ Seu salário e receitas serão projetados automaticamente em todos os meses da linha do tempo.'
                   : `Aplicar apenas no mês de ${selectedMonthName}.`}
@@ -194,11 +194,11 @@ export const IncomeConfigModal: React.FC<IncomeConfigModalProps> = ({
           </div>
 
           {/* Footer Actions */}
-          <div className="pt-3 border-t border-slate-800 flex items-center justify-end gap-2">
+          <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-2 text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors"
+              className="px-3.5 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
             >
               Cancelar
             </button>
