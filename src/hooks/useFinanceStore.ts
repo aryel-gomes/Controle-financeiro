@@ -283,21 +283,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
         });
         cloudItems.sort((a, b) => b.date.localeCompare(a.date));
 
-        setTransactions((prev) => {
-          if (cloudItems.length > 0) {
-            return cloudItems;
-          }
-          if (prev.length > 0) {
-            // Push these local transactions to cloud if cloud is empty
-            const batch = writeBatch(db);
-            prev.forEach((tx) => {
-              batch.set(doc(db, 'transactions', tx.id), sanitizeForFirestore(tx));
-            });
-            batch.commit().catch(console.warn);
-            return prev;
-          }
-          return [];
-        });
+        setTransactions(cloudItems);
         setLastCloudSync(new Date());
         setIsCloudReady(true);
       },
@@ -324,18 +310,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
         snapshot.forEach((d) => {
           items.push(d.data() as CreditCard);
         });
-        setCreditCards((prev) => {
-          if (items.length > 0) return items;
-          if (prev.length > 0) {
-            const batch = writeBatch(db);
-            prev.forEach((c) => {
-              batch.set(doc(db, 'cards', c.id), sanitizeForFirestore(c));
-            });
-            batch.commit().catch(console.warn);
-            return prev;
-          }
-          return [];
-        });
+        setCreditCards(items);
       },
       (error) => {
         console.warn('Firestore cards error:', error);
@@ -351,18 +326,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
         snapshot.forEach((d) => {
           items.push(d.data() as BudgetLimit);
         });
-        setBudgetLimits((prev) => {
-          if (items.length > 0) return items;
-          if (prev.length > 0) {
-            const batch = writeBatch(db);
-            prev.forEach((lim) => {
-              batch.set(doc(db, 'limits', lim.id), sanitizeForFirestore(lim));
-            });
-            batch.commit().catch(console.warn);
-            return prev;
-          }
-          return [];
-        });
+        setBudgetLimits(items);
       },
       (error) => {
         console.warn('Firestore limits error:', error);
@@ -735,12 +699,147 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
       try {
         const docRef = doc(db, 'transactions', id);
         const dataToSave = mergedTx ? sanitizeForFirestore(mergedTx) : sanitizeForFirestore(updatedFields);
-        await setDoc(docRef, dataToSave, { merge: true });
+        await setDoc(docRef, dataToSave);
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `transactions/${id}`);
       }
     },
     []
+  );
+
+  const updateInstallmentSeries = useCallback(
+    async (
+      id: string,
+      updatedData: Partial<Transaction>,
+      options?: { updateAllInGroup?: boolean; newTotalInstallments?: number }
+    ) => {
+      const target = transactions.find((t) => t.id === id);
+      if (!target) {
+        return updateTransaction(id, updatedData);
+      }
+
+      // Find all transactions that belong to this installment group
+      const groupId = target.installmentGroupId;
+      let series = transactions.filter((t) => {
+        if (groupId && t.installmentGroupId) {
+          return t.installmentGroupId === groupId;
+        }
+        return (
+          t.type === 'expense' &&
+          t.category === target.category &&
+          t.description === target.description &&
+          t.cardName === target.cardName &&
+          t.totalInstallments === target.totalInstallments
+        );
+      });
+
+      // If user does not want to update all, or it's a single item
+      if (series.length <= 1 && options?.updateAllInGroup === false) {
+        return updateTransaction(id, updatedData);
+      }
+
+      // Sort series by installment number (1, 2, 3...)
+      series.sort((a, b) => (a.currentInstallment || 1) - (b.currentInstallment || 1));
+
+      // Deduce base date (date of installment 1)
+      const currentNum = target.currentInstallment || 1;
+      const targetDate = updatedData.date || target.date;
+      const baseDate = addMonthsToDateString(targetDate, -(currentNum - 1));
+
+      const newTotal =
+        options?.newTotalInstallments ||
+        updatedData.totalInstallments ||
+        target.totalInstallments ||
+        series.length ||
+        1;
+      const newAmount = updatedData.amount !== undefined ? updatedData.amount : target.amount;
+      const effectiveGroupId =
+        groupId || `group-inst-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const nowIso = new Date().toISOString();
+
+      const batch = writeBatch(db);
+      const toDeleteIds: string[] = [];
+      const updatedItems: Transaction[] = [];
+
+      // If new total is less than current series, delete excess installments
+      if (newTotal < series.length) {
+        for (let i = newTotal; i < series.length; i++) {
+          const delItem = series[i];
+          toDeleteIds.push(delItem.id);
+          batch.delete(doc(db, 'transactions', delItem.id));
+        }
+      }
+
+      // Update existing installments up to newTotal
+      for (let i = 1; i <= Math.min(newTotal, series.length); i++) {
+        const existingTx = series[i - 1];
+        const instDate = addMonthsToDateString(baseDate, i - 1);
+        const updatedItem: Transaction = {
+          ...existingTx,
+          description:
+            updatedData.description !== undefined ? updatedData.description : existingTx.description,
+          amount: newAmount,
+          date: instDate,
+          cardName: updatedData.cardName !== undefined ? updatedData.cardName : existingTx.cardName,
+          category: updatedData.category || existingTx.category || 'credit_card',
+          type: updatedData.type || existingTx.type || 'expense',
+          paymentMethod: updatedData.paymentMethod || existingTx.paymentMethod || 'credit_card',
+          currentInstallment: newTotal > 1 ? i : undefined,
+          totalInstallments: newTotal > 1 ? newTotal : undefined,
+          installmentGroupId: newTotal > 1 ? effectiveGroupId : undefined,
+          notes: updatedData.notes !== undefined ? updatedData.notes : existingTx.notes,
+        };
+        updatedItems.push(updatedItem);
+        const docRef = doc(db, 'transactions', existingTx.id);
+        batch.set(docRef, sanitizeForFirestore(updatedItem));
+      }
+
+      // If new total is greater than current series, create additional installments
+      if (newTotal > series.length) {
+        for (let i = series.length + 1; i <= newTotal; i++) {
+          const instDate = addMonthsToDateString(baseDate, i - 1);
+          const newId = `tx-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 6)}`;
+          const newItem: Transaction = {
+            id: newId,
+            type: updatedData.type || target.type || 'expense',
+            category: updatedData.category || target.category || 'credit_card',
+            description:
+              updatedData.description !== undefined ? updatedData.description : target.description,
+            amount: newAmount,
+            date: instDate,
+            paymentMethod: updatedData.paymentMethod || target.paymentMethod || 'credit_card',
+            cardName: updatedData.cardName !== undefined ? updatedData.cardName : target.cardName,
+            currentInstallment: i,
+            totalInstallments: newTotal,
+            installmentGroupId: effectiveGroupId,
+            isPaid: false,
+            notes: updatedData.notes !== undefined ? updatedData.notes : target.notes,
+            createdAt: nowIso,
+          };
+          updatedItems.push(newItem);
+          const docRef = doc(db, 'transactions', newId);
+          batch.set(docRef, sanitizeForFirestore(newItem));
+        }
+      }
+
+      // Optimistic update in state
+      const updatedMap = new Map(updatedItems.map((t) => [t.id, t]));
+      setTransactions((prev) => {
+        const remaining = prev.filter((t) => !toDeleteIds.includes(t.id));
+        const updated = remaining.map((t) => (updatedMap.has(t.id) ? updatedMap.get(t.id)! : t));
+        const added = updatedItems.filter((t) => !prev.some((p) => p.id === t.id));
+        const combined = [...added, ...updated];
+        combined.sort((a, b) => b.date.localeCompare(a.date));
+        return combined;
+      });
+
+      try {
+        await batch.commit();
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, 'transactions');
+      }
+    },
+    [transactions, updateTransaction]
   );
 
   const deleteTransaction = useCallback(
@@ -757,6 +856,15 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
           } else if (target.recurrenceGroupId) {
             idsToDelete = transactions
               .filter((item) => item.recurrenceGroupId === target.recurrenceGroupId)
+              .map((item) => item.id);
+          } else if (target.totalInstallments && target.totalInstallments > 1) {
+            idsToDelete = transactions
+              .filter(
+                (item) =>
+                  item.description === target.description &&
+                  item.cardName === target.cardName &&
+                  item.totalInstallments === target.totalInstallments
+              )
               .map((item) => item.id);
           }
         }
@@ -1364,6 +1472,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
     historyData,
     addTransaction,
     updateTransaction,
+    updateInstallmentSeries,
     deleteTransaction,
     toggleTransactionPaid,
     updateBudgetLimit,

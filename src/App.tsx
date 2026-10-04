@@ -313,7 +313,17 @@ export default function App() {
         }}
         onSave={(data, existingId, options) => {
           if (existingId) {
-            store.updateTransaction(existingId, data);
+            const isInstallment =
+              options?.updateAllInGroup ||
+              editingTransaction?.installmentGroupId ||
+              (data.totalInstallments && data.totalInstallments > 1) ||
+              (editingTransaction?.totalInstallments && editingTransaction.totalInstallments > 1);
+
+            if (isInstallment) {
+              store.updateInstallmentSeries(existingId, data, options);
+            } else {
+              store.updateTransaction(existingId, data);
+            }
           } else {
             store.addTransaction(data, options);
           }

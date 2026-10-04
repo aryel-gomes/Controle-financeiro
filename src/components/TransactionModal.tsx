@@ -15,7 +15,11 @@ interface TransactionModalProps {
   onSave: (
     tx: Omit<Transaction, 'id' | 'createdAt'>,
     existingId?: string,
-    options?: { repeatMonthsCount?: number }
+    options?: {
+      repeatMonthsCount?: number;
+      updateAllInGroup?: boolean;
+      newTotalInstallments?: number;
+    }
   ) => void;
   onDelete?: (id: string, deleteAllInGroup?: boolean) => void;
   onAddCreditCard?: (card: Omit<CreditCard, 'id'>) => void;
@@ -46,6 +50,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [totalInstallments, setTotalInstallments] = useState<number>(1);
   const [isPaid, setIsPaid] = useState<boolean>(true);
   const [notes, setNotes] = useState('');
+  const [updateAllInGroup, setUpdateAllInGroup] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   // Initialize form when opening or editing
@@ -54,16 +59,26 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setType(editingTransaction.type);
       setCategory(editingTransaction.category);
       setDescription(editingTransaction.description);
-      setAmountStr(editingTransaction.amount.toString());
-      setAmountMode('installment');
+      const hasInst = !!(
+        editingTransaction.totalInstallments && editingTransaction.totalInstallments > 1
+      );
+      if (hasInst && editingTransaction.totalInstallments) {
+        const totalPurchaseVal =
+          editingTransaction.amount * editingTransaction.totalInstallments;
+        setAmountStr(totalPurchaseVal.toFixed(2));
+        setAmountMode('total');
+      } else {
+        setAmountStr(editingTransaction.amount.toString());
+        setAmountMode('total');
+      }
       setDate(editingTransaction.date);
       setCardName(editingTransaction.cardName || creditCards[0]?.name || 'Nubank');
-      const hasInst = !!(editingTransaction.totalInstallments && editingTransaction.totalInstallments > 1);
       setEnableInstallments(hasInst);
       setCurrentInstallment(editingTransaction.currentInstallment || 1);
       setTotalInstallments(editingTransaction.totalInstallments || 1);
       setIsPaid(editingTransaction.isPaid);
       setNotes(editingTransaction.notes || '');
+      setUpdateAllInGroup(true);
     } else {
       setType('expense');
       setCategory('credit_card');
@@ -77,9 +92,27 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setTotalInstallments(1);
       setIsPaid(true);
       setNotes('');
+      setUpdateAllInGroup(true);
     }
     setError(null);
   }, [editingTransaction, isOpen, defaultDate, creditCards]);
+
+  const toggleAmountMode = () => {
+    const rawVal = parseFloat(amountStr.replace(',', '.')) || 0;
+    const installments = totalInstallments > 1 ? totalInstallments : 1;
+
+    if (amountMode === 'total') {
+      setAmountMode('installment');
+      if (rawVal > 0) {
+        setAmountStr((rawVal / installments).toFixed(2));
+      }
+    } else {
+      setAmountMode('total');
+      if (rawVal > 0) {
+        setAmountStr((rawVal * installments).toFixed(2));
+      }
+    }
+  };
 
   // Compute calculated installment and total amounts for credit card
   const amountCalculations = useMemo(() => {
@@ -197,10 +230,15 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
           isCard && enableInstallments && totalInstallments > 1 ? currentInstallment : undefined,
         totalInstallments:
           isCard && enableInstallments && totalInstallments > 1 ? totalInstallments : undefined,
+        installmentGroupId: editingTransaction?.installmentGroupId,
         isPaid: isCard ? true : isPaid,
         notes: notes.trim() || undefined,
       },
-      editingTransaction?.id
+      editingTransaction?.id,
+      {
+        updateAllInGroup,
+        newTotalInstallments: totalInstallments,
+      }
     );
 
     onClose();
@@ -240,9 +278,16 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40">
           <div>
-            <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
-              {editingTransaction ? 'Editar Lançamento' : 'Novo Lançamento'}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                {editingTransaction ? 'Editar Lançamento' : 'Novo Lançamento'}
+              </h3>
+              {editingTransaction?.totalInstallments && editingTransaction.totalInstallments > 1 && (
+                <span className="px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 font-bold text-[10px]">
+                  Parcela {editingTransaction.currentInstallment || 1}/{editingTransaction.totalInstallments}
+                </span>
+              )}
+            </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {type === 'income' ? 'Registre uma entrada' : 'Registre uma despesa'}
             </p>
@@ -526,6 +571,20 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                       <strong>{amountCalculations.endLabel}</strong>
                     </span>
                   </div>
+
+                  {editingTransaction && (
+                    <label className="flex items-start gap-2 pt-2 border-t border-purple-200 dark:border-purple-800/60 text-purple-900 dark:text-purple-200 text-xs font-medium cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={updateAllInGroup}
+                        onChange={(e) => setUpdateAllInGroup(e.target.checked)}
+                        className="rounded border-purple-300 dark:border-purple-700 text-purple-600 focus:ring-purple-500 w-4 h-4 mt-0.5"
+                      />
+                      <span>
+                        Aplicar alterações a <strong>todas as parcelas</strong> desta compra (recalcula valores e datas futuras)
+                      </span>
+                    </label>
+                  )}
                 </div>
               )}
             </div>
