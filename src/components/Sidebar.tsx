@@ -118,7 +118,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center">
               <Wallet className="w-4 h-4" />
             </div>
-            <span className="font-bold text-slate-900 dark:text-white text-base">FinanPlan</span>
+            <span className="font-bold text-slate-900 dark:text-white text-base">Gestão Financeira</span>
           </div>
         </div>
 
@@ -192,10 +192,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
               <div>
                 <h1 className="font-bold text-slate-900 dark:text-white text-base tracking-tight leading-none">
-                  FinanPlan
+                  Gestão Financeira
                 </h1>
                 <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-                  Gestão Financeira
+                  Controle Pessoal
                 </p>
               </div>
             </div>
