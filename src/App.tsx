@@ -212,6 +212,10 @@ export default function App() {
                 onAddCreditCard={store.addCreditCard}
                 onUpdateCreditCard={store.updateCreditCard}
                 onDeleteCreditCard={store.deleteCreditCard}
+                onMarkCardInvoicePaid={(cardName, isPaid) => {
+                  store.setCardInvoicePaid(cardName, store.selectedMonthKey, isPaid);
+                }}
+                onToggleTransactionPaid={store.toggleTransactionPaid}
                 selectedMonthName={store.currentMonthSummary.label}
               />
             </div>
@@ -354,7 +358,10 @@ export default function App() {
         editingTransaction={editingTransaction}
         creditCards={store.creditCards}
         onAddCreditCard={store.addCreditCard}
-        defaultDate={`${store.selectedYear}-${String(store.selectedMonth + 1).padStart(2, '0')}-15`}
+        defaultDate={(() => {
+          const now = new Date();
+          return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        })()}
       />
 
       <IncomeConfigModal

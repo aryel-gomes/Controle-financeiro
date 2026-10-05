@@ -8,6 +8,9 @@ import {
   Plus,
   CreditCard as CardIcon,
   Tag,
+  MoreHorizontal,
+  Check,
+  RefreshCw,
 } from 'lucide-react';
 import { Transaction } from '../types/finance';
 import {
@@ -38,6 +41,14 @@ export const TransactionList: React.FC<TransactionListProps> = ({
     initialCategoryFilter || 'all'
   );
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'paid' | 'pending'>('all');
+  const [openMenuTxId, setOpenMenuTxId] = useState<string | null>(null);
+
+  // Close actions menu on click outside
+  React.useEffect(() => {
+    const handleGlobalClick = () => setOpenMenuTxId(null);
+    window.addEventListener('click', handleGlobalClick);
+    return () => window.removeEventListener('click', handleGlobalClick);
+  }, []);
 
   // React to initialCategoryFilter prop updates
   React.useEffect(() => {
@@ -82,11 +93,34 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   const filteredTotals = useMemo(() => {
     let income = 0;
     let expense = 0;
+    let paidExpense = 0;
+    let pendingExpense = 0;
+
     filteredTransactions.forEach((tx) => {
-      if (tx.type === 'income') income += tx.amount;
-      else expense += tx.amount;
+      if (tx.type === 'income') {
+        income += tx.amount;
+      } else {
+        expense += tx.amount;
+        if (tx.isPaid) {
+          paidExpense += tx.amount;
+        } else {
+          pendingExpense += tx.amount;
+        }
+      }
     });
-    return { income, expense, balance: income - expense };
+
+    const actualBalance = income - paidExpense;
+    const projectedBalance = income - expense;
+
+    return {
+      income,
+      expense,
+      paidExpense,
+      pendingExpense,
+      actualBalance,
+      projectedBalance,
+      balance: projectedBalance,
+    };
   }, [filteredTransactions]);
 
   const handleDeleteClick = (tx: Transaction) => {
@@ -272,14 +306,15 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                   {/* Left: Status Toggle & Info */}
                   <div className="flex items-start gap-2.5 min-w-0 flex-1">
                     <button
+                      type="button"
                       onClick={() => onTogglePaid(tx.id)}
-                      title={tx.isPaid ? 'Pago/Recebido' : 'Pendente'}
-                      className="mt-0.5 p-1 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 rounded transition-colors shrink-0"
+                      title={tx.isPaid ? 'Marcado como Pago/Recebido (clique para alterar)' : 'Marcado como Pendente (clique para alterar)'}
+                      className="mt-0.5 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
                     >
                       {tx.isPaid ? (
-                        <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                       ) : (
-                        <Clock className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+                        <Clock className="w-5 h-5 text-amber-500 dark:text-amber-400" />
                       )}
                     </button>
 
@@ -298,10 +333,30 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                         <span>{catLabel}</span>
                         <span>·</span>
                         <span className="font-mono">{formatDateBR(tx.date)}</span>
+                        <span>·</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onTogglePaid(tx.id);
+                          }}
+                          className="inline-flex items-center gap-1 font-semibold text-[11px] px-1.5 py-0.5 rounded transition-colors"
+                          title="Clique para alternar status entre Pago e Pendente"
+                        >
+                          {tx.isPaid ? (
+                            <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5 font-bold">
+                              ✓ {isIncome ? 'Recebido' : 'Pago'}
+                            </span>
+                          ) : (
+                            <span className="text-amber-600 dark:text-amber-400 flex items-center gap-0.5 font-bold">
+                              ⏳ Pendente
+                            </span>
+                          )}
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -318,7 +373,68 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                       {isIncome ? '+' : '-'} {formatCurrency(tx.amount)}
                     </span>
 
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 relative">
+                      {/* Menu de opções / Ações */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenMenuTxId(openMenuTxId === tx.id ? null : tx.id);
+                        }}
+                        title="Opções do lançamento"
+                        className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                      >
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
+
+                      {/* Dropdown Menu */}
+                      {openMenuTxId === tx.id && (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-lg z-30 py-1 text-xs"
+                        >
+                          <button
+                            onClick={() => {
+                              onTogglePaid(tx.id);
+                              setOpenMenuTxId(null);
+                            }}
+                            className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"
+                          >
+                            {tx.isPaid ? (
+                              <>
+                                <Clock className="w-3.5 h-3.5 text-amber-500" />
+                                <span>Marcar como Pendente</span>
+                              </>
+                            ) : (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                <span>Marcar como Pago</span>
+                              </>
+                            )}
+                          </button>
+                          <button
+                            onClick={() => {
+                              onEditTransaction(tx);
+                              setOpenMenuTxId(null);
+                            }}
+                            className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"
+                          >
+                            <Edit2 className="w-3.5 h-3.5 text-slate-400" />
+                            <span>Editar lançamento</span>
+                          </button>
+                          <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
+                          <button
+                            onClick={() => {
+                              handleDeleteClick(tx);
+                              setOpenMenuTxId(null);
+                            }}
+                            className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Excluir</span>
+                          </button>
+                        </div>
+                      )}
+
                       <button
                         onClick={() => onEditTransaction(tx)}
                         title="Editar"
@@ -369,18 +485,25 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                       {/* Status Toggle */}
                       <td className="py-3 px-4">
                         <button
+                          type="button"
                           onClick={() => onTogglePaid(tx.id)}
                           title={
                             tx.isPaid
-                              ? 'Marcado como Pago/Recebido'
-                              : 'Marcado como Pendente'
+                              ? 'Marcado como Pago/Recebido (clique para alternar)'
+                              : 'Marcado como Pendente (clique para alternar)'
                           }
-                          className="p-1 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 rounded transition-colors"
+                          className="inline-flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 cursor-pointer"
                         >
                           {tx.isPaid ? (
-                            <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 px-2 py-0.5 rounded-md">
+                              <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                              <span>{isIncome ? 'Recebido' : 'Pago'}</span>
+                            </span>
                           ) : (
-                            <Clock className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/60 px-2 py-0.5 rounded-md">
+                              <Clock className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
+                              <span>Pendente</span>
+                            </span>
                           )}
                         </button>
                       </td>
@@ -429,7 +552,68 @@ export const TransactionList: React.FC<TransactionListProps> = ({
 
                       {/* Actions */}
                       <td className="py-3 px-4 text-center">
-                        <div className="flex items-center justify-center gap-1">
+                        <div className="flex items-center justify-center gap-1 relative">
+                          {/* Botão de Opções ao lado */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenMenuTxId(openMenuTxId === tx.id ? null : tx.id);
+                            }}
+                            title="Opções do lançamento"
+                            className="p-1 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors"
+                          >
+                            <MoreHorizontal className="w-4 h-4" />
+                          </button>
+
+                          {/* Dropdown de Opções */}
+                          {openMenuTxId === tx.id && (
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              className="absolute right-0 top-full mt-1 w-52 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-40 py-1 text-left text-xs"
+                            >
+                              <button
+                                onClick={() => {
+                                  onTogglePaid(tx.id);
+                                  setOpenMenuTxId(null);
+                                }}
+                                className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
+                              >
+                                {tx.isPaid ? (
+                                  <>
+                                    <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                    <span>Alterar p/ Pendente</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                    <span>Alterar p/ Pago</span>
+                                  </>
+                                )}
+                              </button>
+                              <button
+                                onClick={() => {
+                                  onEditTransaction(tx);
+                                  setOpenMenuTxId(null);
+                                }}
+                                className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
+                              >
+                                <Edit2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                <span>Editar dados</span>
+                              </button>
+                              <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
+                              <button
+                                onClick={() => {
+                                  handleDeleteClick(tx);
+                                  setOpenMenuTxId(null);
+                                }}
+                                className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                                <span>Excluir</span>
+                              </button>
+                            </div>
+                          )}
+
                           <button
                             onClick={() => onEditTransaction(tx)}
                             title="Editar lançamento"
@@ -464,31 +648,47 @@ export const TransactionList: React.FC<TransactionListProps> = ({
             <span> lançamentos</span>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
             <span>
               Entradas:{' '}
               <strong className="text-emerald-600 dark:text-emerald-400">
                 {formatCurrency(filteredTotals.income)}
               </strong>
             </span>
-            <span className="text-slate-300 dark:text-slate-700">|</span>
+            <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">|</span>
             <span>
               Saídas:{' '}
               <strong className="text-rose-600 dark:text-rose-400">
                 {formatCurrency(filteredTotals.expense)}
-              </strong>
+              </strong>{' '}
+              <span className="text-[10px] text-slate-400">
+                (Pago: {formatCurrency(filteredTotals.paidExpense)} · A Pagar: {formatCurrency(filteredTotals.pendingExpense)})
+              </span>
             </span>
-            <span className="text-slate-300 dark:text-slate-700">|</span>
+            <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">|</span>
             <span>
-              Saldo:{' '}
+              Saldo Atual:{' '}
               <strong
                 className={
-                  filteredTotals.balance >= 0
-                    ? 'text-slate-900 dark:text-white'
+                  filteredTotals.actualBalance >= 0
+                    ? 'text-emerald-600 dark:text-emerald-400'
                     : 'text-rose-600 dark:text-rose-400'
                 }
               >
-                {formatCurrency(filteredTotals.balance)}
+                {formatCurrency(filteredTotals.actualBalance)}
+              </strong>
+            </span>
+            <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">|</span>
+            <span className="text-slate-500">
+              Previsto:{' '}
+              <strong
+                className={
+                  filteredTotals.projectedBalance >= 0
+                    ? 'text-slate-800 dark:text-slate-200'
+                    : 'text-rose-600 dark:text-rose-400'
+                }
+              >
+                {formatCurrency(filteredTotals.projectedBalance)}
               </strong>
             </span>
           </div>

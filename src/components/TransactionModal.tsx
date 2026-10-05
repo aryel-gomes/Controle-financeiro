@@ -7,7 +7,13 @@ import {
   Transaction,
   TransactionType,
 } from '../types/finance';
-import { formatCurrency, addMonthsToDateString, getMonthName } from '../utils/formatters';
+import {
+  formatCurrency,
+  addMonthsToDateString,
+  getMonthName,
+  calculateCardDueDate,
+  formatDateBR,
+} from '../utils/formatters';
 
 interface TransactionModalProps {
   isOpen: boolean;
@@ -36,22 +42,40 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   onAddCreditCard,
   editingTransaction,
   creditCards,
-  defaultDate = '2026-09-28',
+  defaultDate,
 }) => {
   const [type, setType] = useState<TransactionType>('expense');
   const [category, setCategory] = useState<CategoryId>('credit_card');
   const [description, setDescription] = useState('');
   const [amountStr, setAmountStr] = useState('');
   const [amountMode, setAmountMode] = useState<'installment' | 'total'>('total');
-  const [date, setDate] = useState(defaultDate);
+  const [date, setDate] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  });
   const [cardName, setCardName] = useState(creditCards[0]?.name || 'Nubank');
   const [enableInstallments, setEnableInstallments] = useState<boolean>(true);
   const [currentInstallment, setCurrentInstallment] = useState<number>(1);
   const [totalInstallments, setTotalInstallments] = useState<number>(1);
-  const [isPaid, setIsPaid] = useState<boolean>(true);
+  const [isPaid, setIsPaid] = useState<boolean>(false);
+  const [scheduleOnDueDate, setScheduleOnDueDate] = useState<boolean>(true);
   const [notes, setNotes] = useState('');
   const [updateAllInGroup, setUpdateAllInGroup] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Selected credit card
+  const selectedCard = useMemo(() => {
+    return (
+      creditCards.find((c) => c.name.toLowerCase() === cardName.trim().toLowerCase()) ||
+      creditCards[0]
+    );
+  }, [creditCards, cardName]);
+
+  // Invoice due date calculated using closingDay and dueDay
+  const invoiceDueDate = useMemo(() => {
+    if (!selectedCard) return date;
+    return calculateCardDueDate(date, selectedCard.closingDay, selectedCard.dueDay);
+  }, [date, selectedCard]);
 
   // Initialize form when opening or editing
   useEffect(() => {
@@ -85,12 +109,15 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setDescription('');
       setAmountStr('');
       setAmountMode('total');
-      setDate(defaultDate);
+      const now = new Date();
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      setDate(defaultDate || todayStr);
       setCardName(creditCards[0]?.name || 'Nubank');
       setEnableInstallments(true);
       setCurrentInstallment(1);
       setTotalInstallments(1);
-      setIsPaid(true);
+      setIsPaid(false); // Credit cards are unpaid until the card invoice is paid!
+      setScheduleOnDueDate(true);
       setNotes('');
       setUpdateAllInGroup(true);
     }
@@ -114,6 +141,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     }
   };
 
+  const isCardExpense = type === 'expense' && category === 'credit_card';
+
   // Compute calculated installment and total amounts for credit card
   const amountCalculations = useMemo(() => {
     const rawVal = parseFloat(amountStr.replace(',', '.')) || 0;
@@ -132,9 +161,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       }
     }
 
-    const endDate = installments > 1 ? addMonthsToDateString(date, installments - 1) : date;
-    const [, startMonth] = date.split('-').map(Number);
-    const [startYear] = date.split('-').map(Number);
+    const effectiveBaseDate = isCardExpense && scheduleOnDueDate ? invoiceDueDate : date;
+    const endDate = installments > 1 ? addMonthsToDateString(effectiveBaseDate, installments - 1) : effectiveBaseDate;
+    const [, startMonth] = (effectiveBaseDate || '').split('-').map(Number);
+    const [startYear] = (effectiveBaseDate || '').split('-').map(Number);
     const [endYear, endMonth] = (endDate || '').split('-').map(Number);
 
     const startLabel = startMonth ? `${getMonthName(startMonth - 1)}/${startYear}` : '';
@@ -148,7 +178,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       startLabel,
       endLabel,
     };
-  }, [amountStr, enableInstallments, totalInstallments, amountMode, date]);
+  }, [amountStr, enableInstallments, totalInstallments, amountMode, date, isCardExpense, scheduleOnDueDate, invoiceDueDate]);
 
   if (!isOpen) return null;
 
@@ -158,9 +188,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setCategory('salary');
       setEnableInstallments(false);
       setTotalInstallments(1);
+      setIsPaid(true); // Income received
     } else {
       setCategory('credit_card');
       setEnableInstallments(true);
+      setIsPaid(false); // Cards default to unpaid until invoice is paid
     }
   };
 
@@ -217,13 +249,16 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       });
     }
 
+    // If card expense and user enabled schedule on due date, save with invoice due date
+    const effectiveDate = isCard && scheduleOnDueDate ? invoiceDueDate : date;
+
     onSave(
       {
         type,
         category,
         description: description.trim(),
         amount: finalAmountPerMonth,
-        date,
+        date: effectiveDate,
         paymentMethod: resolvedPaymentMethod,
         cardName: isCard ? cardName.trim() || 'Cartão' : undefined,
         currentInstallment:
@@ -231,7 +266,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         totalInstallments:
           isCard && enableInstallments && totalInstallments > 1 ? totalInstallments : undefined,
         installmentGroupId: editingTransaction?.installmentGroupId,
-        isPaid: isCard ? true : isPaid,
+        isPaid: isPaid,
         notes: notes.trim() || undefined,
       },
       editingTransaction?.id,
@@ -265,7 +300,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     onClose();
   };
 
-  const isCardExpense = type === 'expense' && category === 'credit_card';
   const isFixedDebt = type === 'expense' && category === 'fixed_debt';
   const isVariableExpense = type === 'expense' && category === 'general_expenses';
 
@@ -555,6 +589,52 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                 </select>
               </div>
 
+              {/* Card billing cycle and due date projection */}
+              {selectedCard && (
+                <div className="p-3 bg-white/90 dark:bg-slate-900/90 border border-purple-200 dark:border-purple-800/80 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-purple-950 dark:text-purple-200">
+                      Ciclo de Fatura ({selectedCard.name})
+                    </span>
+                    <div className="flex items-center gap-2 font-mono text-[11px] text-purple-700 dark:text-purple-300">
+                      <span>Fecha dia <strong>{selectedCard.closingDay}</strong></span>
+                      <span>·</span>
+                      <span>Vence dia <strong>{selectedCard.dueDay}</strong></span>
+                    </div>
+                  </div>
+
+                  <div className="text-[11px] p-2 rounded-lg border leading-relaxed bg-purple-50/80 dark:bg-purple-950/60 border-purple-100 dark:border-purple-900/50">
+                    {parseInt(date.split('-')[2] || '0') >= selectedCard.closingDay ? (
+                      <p className="flex items-start gap-1.5 text-amber-700 dark:text-amber-300">
+                        <span className="shrink-0 mt-0.5">⚡</span>
+                        <span>
+                          Compra no dia {date.split('-')[2]}: <strong>A fatura deste mês já virou</strong> (fecha dia {selectedCard.closingDay}). Esta compra entrará na fatura com vencimento em <strong>{formatDateBR(invoiceDueDate)}</strong>.
+                        </span>
+                      </p>
+                    ) : (
+                      <p className="flex items-start gap-1.5 text-emerald-700 dark:text-emerald-300">
+                        <span className="shrink-0 mt-0.5">📅</span>
+                        <span>
+                          Compra antes do fechamento: entra na fatura que vence em <strong>{formatDateBR(invoiceDueDate)}</strong>.
+                        </span>
+                      </p>
+                    )}
+                  </div>
+
+                  <label className="flex items-start gap-2 pt-1 text-xs text-purple-900 dark:text-purple-200 font-medium cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={scheduleOnDueDate}
+                      onChange={(e) => setScheduleOnDueDate(e.target.checked)}
+                      className="rounded border-purple-300 dark:border-purple-700 text-purple-600 focus:ring-purple-500 w-4 h-4 mt-0.5"
+                    />
+                    <span>
+                      Lançar vencimento da compra no dia de pagar o cartão (<strong>{formatDateBR(invoiceDueDate)}</strong>)
+                    </span>
+                  </label>
+                </div>
+              )}
+
               {totalInstallments > 1 && (
                 <div className="p-2.5 bg-white/80 dark:bg-slate-900/80 border border-purple-200 dark:border-purple-800/60 rounded-xl text-xs space-y-1">
                   <div className="flex items-center justify-between font-mono font-bold text-purple-700 dark:text-purple-300">
@@ -590,25 +670,38 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
             </div>
           )}
 
-          {/* DÍVIDAS FIXAS & GASTOS VARIÁVEIS & ENTRADAS: Status de pagamento (Formas de pagamento removed) */}
-          {!isCardExpense && (
-            <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Status do Lançamento
+          {/* Status do Lançamento: Para todos os tipos (inclusive cartão de crédito) */}
+          <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-between">
+            <div>
+              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
+                Status do Pagamento
               </span>
-              <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isPaid}
-                  onChange={(e) => setIsPaid(e.target.checked)}
-                  className="rounded border-slate-300 dark:border-slate-700 text-emerald-600 focus:ring-emerald-500 w-4 h-4"
-                />
-                <span>
-                  {type === 'income' ? 'Já recebido na conta' : 'Já pago / liquidado'}
-                </span>
-              </label>
+              <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                {isCardExpense
+                  ? 'Fatura aberta fica pendente até você confirmar o pagamento do cartão'
+                  : 'Indique se o valor já foi quitado/recebido ou se está pendente'}
+              </span>
             </div>
-          )}
+            <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isPaid}
+                onChange={(e) => setIsPaid(e.target.checked)}
+                className="rounded border-slate-300 dark:border-slate-700 text-emerald-600 focus:ring-emerald-500 w-4 h-4"
+              />
+              <span className={isPaid ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : 'text-slate-500'}>
+                {isPaid
+                  ? isCardExpense
+                    ? 'Fatura Paga'
+                    : type === 'income'
+                    ? 'Já Recebido'
+                    : 'Já Pago'
+                  : isCardExpense
+                  ? 'Fatura Aberta (A Pagar)'
+                  : 'Pendente'}
+              </span>
+            </label>
+          </div>
 
           {/* Notes */}
           <div>

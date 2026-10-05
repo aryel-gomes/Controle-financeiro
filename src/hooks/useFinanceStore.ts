@@ -456,6 +456,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
     const totalIncome = salaryIncome + commissionIncome + otherIncome;
     const totalExpense = creditCardExpense + fixedDebtExpense + generalExpense;
     const netBalance = totalIncome - totalExpense;
+    const actualBalance = totalIncome - paidExpense;
     const savingsRate = totalIncome > 0 ? Math.max(0, (netBalance / totalIncome) * 100) : 0;
 
     return {
@@ -470,6 +471,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
       fixedDebtExpense,
       generalExpense,
       netBalance,
+      actualBalance,
       savingsRate,
       paidExpense,
       pendingExpense,
@@ -573,6 +575,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
       totalIncome = salaryIncome + commissionIncome + otherIncome;
       totalExpense = creditCardExpense + fixedDebtExpense + generalExpense;
       const netBalance = totalIncome - totalExpense;
+      const actualBalance = totalIncome - paidExpense;
       const savingsRate = totalIncome > 0 ? Math.max(0, (netBalance / totalIncome) * 100) : 0;
 
       result.push({
@@ -587,6 +590,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
         fixedDebtExpense,
         generalExpense,
         netBalance,
+        actualBalance,
         savingsRate,
         paidExpense,
         pendingExpense,
@@ -907,6 +911,49 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
       }
     },
     []
+  );
+
+  const setCardInvoicePaid = useCallback(
+    async (cardName: string, monthKey: string, isPaid: boolean) => {
+      const affectedIds: string[] = [];
+      setTransactions((prev) =>
+        prev.map((item) => {
+          // EXCLUSIVE TO CREDIT CARDS: Never touch fixed debts, variable expenses, or income!
+          const isCardTx =
+            item.type === 'expense' &&
+            (item.category === 'credit_card' || item.paymentMethod === 'credit_card');
+
+          if (!isCardTx) {
+            return item;
+          }
+
+          // Match card by cardName
+          const matchesCard =
+            (item.cardName && item.cardName.trim().toLowerCase() === cardName.trim().toLowerCase()) ||
+            (!item.cardName && cardName.trim().toLowerCase() === (creditCards[0]?.name || '').trim().toLowerCase());
+
+          if (matchesCard && item.date.startsWith(monthKey)) {
+            affectedIds.push(item.id);
+            return { ...item, isPaid };
+          }
+          return item;
+        })
+      );
+
+      if (affectedIds.length === 0) return;
+
+      try {
+        const batch = writeBatch(db);
+        affectedIds.forEach((id) => {
+          const docRef = doc(db, 'transactions', id);
+          batch.set(docRef, { isPaid }, { merge: true });
+        });
+        await batch.commit();
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `transactions/batch-card-invoice`);
+      }
+    },
+    [creditCards]
   );
 
   // Budget limits mutation (Admin Only)
@@ -1476,6 +1523,7 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
     updateInstallmentSeries,
     deleteTransaction,
     toggleTransactionPaid,
+    setCardInvoicePaid,
     updateBudgetLimit,
     saveAllBudgetLimits,
     updateMonthlyIncomes,

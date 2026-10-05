@@ -44,6 +44,44 @@ export const addMonthsToDateString = (baseDateStr: string, monthsToAdd: number):
   return `${targetYear}-${mm}-${dd}`;
 };
 
+/**
+ * Calculates the exact invoice due date (data de pagar) for a purchase made on a credit card,
+ * taking into account closing day (data de virar a fatura) and due day.
+ */
+export const calculateCardDueDate = (
+  purchaseDateStr: string,
+  closingDay: number,
+  dueDay: number
+): string => {
+  if (!purchaseDateStr) return purchaseDateStr;
+  const [y, m, d] = purchaseDateStr.split('-').map(Number);
+  if (!y || !m || !d) return purchaseDateStr;
+
+  let invoiceMonthIndex = m - 1; // 0-based
+  let invoiceYear = y;
+
+  // If purchase is made on or after the closing day, the invoice has already closed (virou a fatura)
+  if (d >= closingDay) {
+    invoiceMonthIndex += 1;
+  }
+
+  // If dueDay is less than closingDay, payment falls in the month following the closing cycle
+  // (e.g., closes on the 24th, due on the 3rd of the following month)
+  if (dueDay < closingDay) {
+    invoiceMonthIndex += 1;
+  }
+
+  const targetYear = invoiceYear + Math.floor(invoiceMonthIndex / 12);
+  const normalizedMonth = ((invoiceMonthIndex % 12) + 12) % 12;
+
+  const daysInTargetMonth = new Date(targetYear, normalizedMonth + 1, 0).getDate();
+  const validDay = Math.min(dueDay, daysInTargetMonth);
+
+  const mm = String(normalizedMonth + 1).padStart(2, '0');
+  const dd = String(validDay).padStart(2, '0');
+  return `${targetYear}-${mm}-${dd}`;
+};
+
 export const getMonthName = (monthIndex: number): string => {
   const months = [
     'Janeiro',

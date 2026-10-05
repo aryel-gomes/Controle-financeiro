@@ -84,7 +84,8 @@ export interface MonthSummary {
   creditCardExpense: number;
   fixedDebtExpense: number;
   generalExpense: number;
-  netBalance: number;
+  netBalance: number; // Saldo projetado do mês (totalIncome - totalExpense)
+  actualBalance: number; // Saldo atual em conta (totalIncome - paidExpense)
   savingsRate: number; // percentage
   paidExpense: number;
   pendingExpense: number;
