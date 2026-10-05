@@ -73,9 +73,9 @@ export interface LimitAlert {
 export function useFinanceStore(onRequireAdmin?: () => void) {
   const { user, isAdmin } = useAuth();
 
-  // Initial date: 2026-09 (current local year & month)
-  const [selectedYear, setSelectedYear] = useState<number>(2026);
-  const [selectedMonth, setSelectedMonth] = useState<number>(8); // 8 is September (0-indexed)
+  // Initial date: dynamically initialize to current local year & month
+  const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth());
 
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     try {
@@ -399,8 +399,9 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
   }, []);
 
   const goToCurrentMonth = useCallback(() => {
-    setSelectedYear(2026);
-    setSelectedMonth(8); // September 2026
+    const now = new Date();
+    setSelectedYear(now.getFullYear());
+    setSelectedMonth(now.getMonth());
   }, []);
 
   const selectedMonthKey = useMemo(() => {

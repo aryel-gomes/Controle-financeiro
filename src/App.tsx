@@ -6,6 +6,7 @@ import { MonthScrubber } from './components/MonthScrubber';
 import { QuickStatsHero } from './components/QuickStatsHero';
 import { InstallmentFutureViewer } from './components/InstallmentFutureViewer';
 import { BudgetProgressCard } from './components/charts/BudgetProgressCard';
+import { FutureProjectionViewer } from './components/FutureProjectionViewer';
 import { TransactionList } from './components/TransactionList';
 import { TransactionModal } from './components/TransactionModal';
 import { BudgetLimitModal } from './components/BudgetLimitModal';
@@ -22,7 +23,13 @@ export default function App() {
   const store = useFinanceStore(() => setIsAdminModalOpen(true));
 
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'transactions' | 'cards' | 'installments' | 'investments' | 'budgets'
+    | 'overview'
+    | 'transactions'
+    | 'cards'
+    | 'installments'
+    | 'investments'
+    | 'budgets'
+    | 'projection'
   >('overview');
 
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
@@ -280,11 +287,27 @@ export default function App() {
               />
             </div>
           )}
+
+          {/* TAB 7: PROJEÇÃO FUTURA */}
+          {activeTab === 'projection' && (
+            <div className="space-y-5 animate-in fade-in duration-200">
+              <FutureProjectionViewer
+                transactions={store.transactions}
+                onSelectMonthYear={(year, month) => {
+                  store.setSelectedYear(year);
+                  store.setSelectedMonth(month);
+                  setActiveTab('overview');
+                }}
+                onOpenNewTransaction={() => handleOpenNewTransaction()}
+                onOpenIncomeModal={() => setIsIncomeModalOpen(true)}
+              />
+            </div>
+          )}
         </main>
 
         {/* Minimal Footer */}
         <footer className="mt-auto border-t border-slate-200/80 dark:border-slate-800/80 bg-white/50 dark:bg-[#0B0F17]/50 py-4 px-6 text-xs text-slate-400 dark:text-slate-500 flex flex-wrap items-center justify-between gap-2">
-          <span>FinanPlan · Gestão Pessoal Minimalista</span>
+          <span>Gestão Financeira · Controle Pessoal</span>
           <div className="flex items-center gap-3">
             <button
               onClick={handleResetToZero}

@@ -18,15 +18,30 @@ import {
   X,
   Lock,
   ShieldCheck,
+  TrendingUp,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { getMonthName } from '../utils/formatters';
 
 interface SidebarProps {
-  activeTab: 'overview' | 'transactions' | 'cards' | 'installments' | 'investments' | 'budgets';
+  activeTab:
+    | 'overview'
+    | 'transactions'
+    | 'cards'
+    | 'installments'
+    | 'investments'
+    | 'budgets'
+    | 'projection';
   setActiveTab: (
-    tab: 'overview' | 'transactions' | 'cards' | 'installments' | 'investments' | 'budgets'
+    tab:
+      | 'overview'
+      | 'transactions'
+      | 'cards'
+      | 'installments'
+      | 'investments'
+      | 'budgets'
+      | 'projection'
   ) => void;
   selectedMonth: number;
   selectedYear: number;
@@ -60,7 +75,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { isAdmin, user } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const isCurrentMonth = selectedYear === 2026 && selectedMonth === 8;
+  const now = new Date();
+  const currentRealYear = now.getFullYear();
+  const currentRealMonth = now.getMonth();
+  const isCurrentMonth = selectedYear === currentRealYear && selectedMonth === currentRealMonth;
 
   const navItems = [
     {
@@ -93,6 +111,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Limites de Gastos',
       icon: SlidersHorizontal,
       alert: hasActiveAlerts,
+    },
+    {
+      id: 'projection' as const,
+      label: 'Projeção Futura',
+      icon: TrendingUp,
     },
   ];
 

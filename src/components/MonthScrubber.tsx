@@ -22,8 +22,9 @@ export const MonthScrubber: React.FC<MonthScrubberProps> = ({
 
   // Generate months dynamically up to the final month of the furthest installment / debt
   const monthsList = React.useMemo(() => {
-    const baseYear = 2026;
-    const baseMonth = 8; // September 2026 (month 8, 0-indexed)
+    const now = new Date();
+    const baseYear = now.getFullYear();
+    const baseMonth = now.getMonth();
 
     // Base default: at least 6 months ahead from base
     let maxYear = baseYear;
