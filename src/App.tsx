@@ -16,11 +16,23 @@ import { InvestmentManager } from './components/InvestmentManager';
 import { ExportImportModal } from './components/ExportImportModal';
 import { AdminAuthModal } from './components/AdminAuthModal';
 import { Transaction } from './types/finance';
-import { SlidersHorizontal, RotateCcw } from 'lucide-react';
+import { SlidersHorizontal, RotateCcw, Eye, EyeOff, Plus } from 'lucide-react';
+import { usePrivacy } from './context/PrivacyContext';
 
 export default function App() {
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const store = useFinanceStore(() => setIsAdminModalOpen(true));
+  const { hideValues, toggleHideValues } = usePrivacy();
+
+  const tabLabels: Record<string, string> = {
+    overview: 'Visão Geral',
+    transactions: 'Lançamentos',
+    cards: 'Cartões de Crédito',
+    installments: 'Parcelas Futuras',
+    investments: 'Investimentos',
+    budgets: 'Limites de Gastos',
+    projection: 'Projeção Futura',
+  };
 
   const [activeTab, setActiveTab] = useState<
     | 'overview'
@@ -118,6 +130,51 @@ export default function App() {
           onFilterCategory={handleFilterCategory}
         />
 
+        {/* Desktop Top Bar */}
+        <header className="hidden lg:flex items-center justify-between px-6 lg:px-8 py-3 bg-white/80 dark:bg-[#0E131F]/80 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 sticky top-0 z-30 transition-colors">
+          <div className="flex items-center gap-3">
+            <h1 className="text-sm font-bold text-slate-900 dark:text-white">
+              {tabLabels[activeTab]}
+            </h1>
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium border border-slate-200/60 dark:border-slate-800">
+              {store.currentMonthSummary.label}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            {/* Botão de Esconder / Mostrar Valores no Topo */}
+            <button
+              onClick={toggleHideValues}
+              className={`flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all ${
+                hideValues
+                  ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-200 shadow-2xs'
+                  : 'bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 shadow-2xs'
+              }`}
+              title={hideValues ? 'Clique para mostrar todos os valores' : 'Clique para esconder todos os valores'}
+            >
+              {hideValues ? (
+                <>
+                  <EyeOff className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Valores Ocultos</span>
+                </>
+              ) : (
+                <>
+                  <Eye className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Esconder Valores</span>
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={handleOpenNewTransaction}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+              <span>Novo Lançamento</span>
+            </button>
+          </div>
+        </header>
+
         {/* Main Content */}
         <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-5">
           {/* TAB 1: VISÃO GERAL (Month Timeline + 3 Cards: Entradas, Saídas, Saldo + Extrato) */}
@@ -195,6 +252,7 @@ export default function App() {
                 onEditTransaction={handleEditTransaction}
                 onDeleteTransaction={store.deleteTransaction}
                 onTogglePaid={store.toggleTransactionPaid}
+                onReplicateFixedDebt={store.replicateFixedDebtAcrossMonths}
                 initialCategoryFilter={activeCategoryFilter}
               />
             </div>
@@ -346,8 +404,16 @@ export default function App() {
               (data.totalInstallments && data.totalInstallments > 1) ||
               (editingTransaction?.totalInstallments && editingTransaction.totalInstallments > 1);
 
-            if (isInstallment) {
+            const isFixedSeries =
+              options?.updateAllInGroup &&
+              (data.category === 'fixed_debt' ||
+                editingTransaction?.category === 'fixed_debt' ||
+                editingTransaction?.recurrenceGroupId);
+
+            if (isInstallment && (data.totalInstallments || editingTransaction?.totalInstallments)) {
               store.updateInstallmentSeries(existingId, data, options);
+            } else if (isFixedSeries) {
+              store.updateRecurrenceSeries(existingId, data, options);
             } else {
               store.updateTransaction(existingId, data);
             }
@@ -355,6 +421,7 @@ export default function App() {
             store.addTransaction(data, options);
           }
         }}
+        onDelete={store.deleteTransaction}
         editingTransaction={editingTransaction}
         creditCards={store.creditCards}
         onAddCreditCard={store.addCreditCard}

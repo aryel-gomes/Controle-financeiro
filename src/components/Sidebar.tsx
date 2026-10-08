@@ -19,9 +19,12 @@ import {
   Lock,
   ShieldCheck,
   TrendingUp,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { usePrivacy } from '../context/PrivacyContext';
 import { getMonthName } from '../utils/formatters';
 
 interface SidebarProps {
@@ -73,6 +76,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { theme, setTheme } = useTheme();
   const { isAdmin, user } = useAuth();
+  const { hideValues, toggleHideValues } = usePrivacy();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const now = new Date();
@@ -147,6 +151,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Mobile quick actions */}
         <div className="flex items-center gap-1.5">
+          {/* Botão de ocultar/mostrar valores no celular */}
+          <button
+            onClick={toggleHideValues}
+            className={`p-1.5 rounded-lg border text-xs flex items-center justify-center transition-colors ${
+              hideValues
+                ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-300'
+                : 'bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
+            }`}
+            title={hideValues ? 'Mostrar valores' : 'Esconder valores'}
+            aria-label={hideValues ? 'Mostrar valores' : 'Esconder valores'}
+          >
+            {hideValues ? <EyeOff className="w-4 h-4 text-amber-500" /> : <Eye className="w-4 h-4" />}
+          </button>
+
           {/* Admin status button on mobile */}
           <button
             onClick={onOpenAdminModal}
@@ -223,12 +241,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             </div>
 
-            <button
-              onClick={() => setMobileMenuOpen(false)}
-              className="lg:hidden p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              {/* Desktop toggle privacy in header */}
+              <button
+                onClick={toggleHideValues}
+                className={`hidden lg:flex p-1.5 rounded-lg border text-xs transition-colors ${
+                  hideValues
+                    ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-300'
+                    : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                }`}
+                title={hideValues ? 'Mostrar valores' : 'Esconder valores'}
+              >
+                {hideValues ? <EyeOff className="w-4 h-4 text-amber-500" /> : <Eye className="w-4 h-4" />}
+              </button>
+
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="lg:hidden p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {/* Month Selector Box */}
@@ -352,6 +385,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span className="text-[10px] text-emerald-600 dark:text-emerald-400">Entrar →</span>
             </button>
           )}
+
+          {/* Ocultar / Mostrar Valores */}
+          <button
+            type="button"
+            onClick={toggleHideValues}
+            className={`w-full py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-between transition-all ${
+              hideValues
+                ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800/80 text-amber-800 dark:text-amber-200'
+                : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300'
+            }`}
+            title={hideValues ? 'Clique para mostrar todos os valores' : 'Clique para esconder todos os valores'}
+          >
+            <div className="flex items-center gap-2">
+              {hideValues ? (
+                <EyeOff className="w-3.5 h-3.5 text-amber-500" />
+              ) : (
+                <Eye className="w-3.5 h-3.5 text-slate-400" />
+              )}
+              <span>{hideValues ? 'Valores Ocultos' : 'Ocultar Valores'}</span>
+            </div>
+            <span
+              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                hideValues
+                  ? 'bg-amber-200/70 dark:bg-amber-900/60 text-amber-900 dark:text-amber-100'
+                  : 'bg-slate-200/70 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+              }`}
+            >
+              {hideValues ? 'ATIVO' : 'OCULTAR'}
+            </span>
+          </button>
 
           {/* Explicit Light / Dark Theme Switcher */}
           <div className="flex items-center justify-between p-1 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 text-xs">

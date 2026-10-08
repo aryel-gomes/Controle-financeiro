@@ -9,9 +9,12 @@ import {
   Edit2,
   X,
   Check,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { CreditCard, Transaction } from '../types/finance';
 import { formatCurrency, formatPercent, formatDateBR } from '../utils/formatters';
+import { usePrivacy } from '../context/PrivacyContext';
 
 interface CreditCardManagerProps {
   creditCards: CreditCard[];
@@ -55,6 +58,7 @@ export const CreditCardManager: React.FC<CreditCardManagerProps> = ({
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<CreditCard | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'paid'>('all');
+  const { hideValues, toggleHideValues } = usePrivacy();
 
   // Form states for new/editing card
   const [name, setName] = useState('');
@@ -206,6 +210,19 @@ export const CreditCardManager: React.FC<CreditCardManagerProps> = ({
         </div>
 
         <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto">
+          <button
+            onClick={toggleHideValues}
+            className={`p-2 rounded-xl border text-xs flex items-center justify-center transition-colors ${
+              hideValues
+                ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-300 shadow-2xs'
+                : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+            title={hideValues ? 'Mostrar valores' : 'Esconder valores'}
+            aria-label={hideValues ? 'Mostrar valores' : 'Esconder valores'}
+          >
+            {hideValues ? <EyeOff className="w-4 h-4 text-amber-500" /> : <Eye className="w-4 h-4" />}
+          </button>
+
           <button
             onClick={handleOpenAddCard}
             className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-white bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors shadow-xs whitespace-nowrap"
@@ -608,6 +625,11 @@ export const CreditCardManager: React.FC<CreditCardManagerProps> = ({
                           {tx.totalInstallments && tx.totalInstallments > 1 && (
                             <span className="text-[10px] font-mono text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800/60 px-1 rounded">
                               Parcela {tx.currentInstallment || 1}/{tx.totalInstallments}
+                            </span>
+                          )}
+                          {tx.category === 'general_expenses' && (
+                            <span className="text-[10px] text-purple-700 dark:text-purple-300 font-semibold bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800/60 px-1 rounded">
+                              Gasto Variável
                             </span>
                           )}
                         </div>

@@ -54,6 +54,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   });
   const [cardName, setCardName] = useState(creditCards[0]?.name || 'Nubank');
+  const [variablePaymentMethod, setVariablePaymentMethod] = useState<'credit_card' | 'other'>('other');
+  const [fixedRepeatMonths, setFixedRepeatMonths] = useState<number>(24);
   const [enableInstallments, setEnableInstallments] = useState<boolean>(true);
   const [currentInstallment, setCurrentInstallment] = useState<number>(1);
   const [totalInstallments, setTotalInstallments] = useState<number>(1);
@@ -83,6 +85,16 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setType(editingTransaction.type);
       setCategory(editingTransaction.category);
       setDescription(editingTransaction.description);
+      const isCardPayment =
+        editingTransaction.category === 'credit_card' ||
+        editingTransaction.paymentMethod === 'credit_card';
+
+      if (editingTransaction.category === 'general_expenses') {
+        setVariablePaymentMethod(isCardPayment ? 'credit_card' : 'other');
+      } else {
+        setVariablePaymentMethod('other');
+      }
+
       const hasInst = !!(
         editingTransaction.totalInstallments && editingTransaction.totalInstallments > 1
       );
@@ -97,15 +109,18 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       }
       setDate(editingTransaction.date);
       setCardName(editingTransaction.cardName || creditCards[0]?.name || 'Nubank');
-      setEnableInstallments(hasInst);
+      setEnableInstallments(isCardPayment ? (hasInst || true) : false);
       setCurrentInstallment(editingTransaction.currentInstallment || 1);
       setTotalInstallments(editingTransaction.totalInstallments || 1);
       setIsPaid(editingTransaction.isPaid);
       setNotes(editingTransaction.notes || '');
       setUpdateAllInGroup(true);
+      setFixedRepeatMonths(24);
     } else {
       setType('expense');
       setCategory('credit_card');
+      setVariablePaymentMethod('other');
+      setFixedRepeatMonths(24);
       setDescription('');
       setAmountStr('');
       setAmountMode('total');
@@ -141,7 +156,14 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     }
   };
 
-  const isCardExpense = type === 'expense' && category === 'credit_card';
+  // Whether this transaction is being paid on a credit card (either credit_card category OR general_expenses with card selected)
+  const isCardExpense =
+    type === 'expense' &&
+    (category === 'credit_card' ||
+      (category === 'general_expenses' && variablePaymentMethod === 'credit_card'));
+
+  const isFixedDebt = type === 'expense' && category === 'fixed_debt';
+  const isVariableExpense = type === 'expense' && category === 'general_expenses';
 
   // Compute calculated installment and total amounts for credit card
   const amountCalculations = useMemo(() => {
@@ -189,10 +211,12 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setEnableInstallments(false);
       setTotalInstallments(1);
       setIsPaid(true); // Income received
+      setVariablePaymentMethod('other');
     } else {
       setCategory('credit_card');
       setEnableInstallments(true);
       setIsPaid(false); // Cards default to unpaid until invoice is paid
+      setVariablePaymentMethod('other');
     }
   };
 
@@ -215,7 +239,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       return;
     }
 
-    const isCard = type === 'expense' && category === 'credit_card';
+    const isCard = isCardExpense;
     const finalAmountPerMonth =
       isCard && enableInstallments && totalInstallments > 1
         ? amountCalculations.installmentAmount
@@ -273,6 +297,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       {
         updateAllInGroup,
         newTotalInstallments: totalInstallments,
+        repeatMonthsCount: isFixedDebt ? (fixedRepeatMonths || 24) : undefined,
       }
     );
 
@@ -292,6 +317,15 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         } de "${editingTransaction.description}".\n\nDeseja excluir TODAS as parcelas deste lançamento?\n\n• OK: Excluir TODAS as parcelas\n• Cancelar: Excluir APENAS esta parcela`
       );
       onDelete(editingTransaction.id, deleteAll);
+    } else if (
+      editingTransaction.recurrenceGroupId ||
+      editingTransaction.isRecurring ||
+      editingTransaction.category === 'fixed_debt'
+    ) {
+      const deleteAll = confirm(
+        `Esta é uma dívida fixa ("${editingTransaction.description}").\n\nDeseja excluir de TODOS os meses ou apenas deste mês?\n\n• OK: Excluir de TODOS os meses\n• Cancelar: Excluir APENAS deste mês`
+      );
+      onDelete(editingTransaction.id, deleteAll);
     } else {
       if (confirm(`Deseja realmente excluir "${editingTransaction.description}"?`)) {
         onDelete(editingTransaction.id, false);
@@ -299,9 +333,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     }
     onClose();
   };
-
-  const isFixedDebt = type === 'expense' && category === 'fixed_debt';
-  const isVariableExpense = type === 'expense' && category === 'general_expenses';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 dark:bg-black/75 backdrop-blur-xs">
@@ -417,6 +448,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   onClick={() => {
                     setCategory('credit_card');
                     setEnableInstallments(true);
+                    setVariablePaymentMethod('other');
                   }}
                   className={`p-2.5 rounded-xl border text-center text-xs font-semibold transition-all ${
                     category === 'credit_card'
@@ -432,6 +464,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                     setCategory('fixed_debt');
                     setEnableInstallments(false);
                     setTotalInstallments(1);
+                    setVariablePaymentMethod('other');
                   }}
                   className={`p-2.5 rounded-xl border text-center text-xs font-semibold transition-all ${
                     category === 'fixed_debt'
@@ -459,6 +492,95 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
               </div>
             )}
           </div>
+
+          {/* DÍVIDA FIXA RECORRENTE: Garante que fica em todos os meses */}
+          {isFixedDebt && (
+            <div className="space-y-2.5 p-3.5 bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-xl">
+              <div className="flex items-start gap-2.5">
+                <span className="p-1 rounded-lg bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 shrink-0 text-sm">
+                  🔄
+                </span>
+                <div>
+                  <span className="text-xs font-bold text-amber-950 dark:text-amber-200 block">
+                    Dívida Fixa Recorrente (Fica em todos os meses)
+                  </span>
+                  <span className="text-[11px] text-amber-800 dark:text-amber-300/90 leading-relaxed block mt-0.5">
+                    Esta dívida será lançada automaticamente em todos os meses. Você poderá alterar o status de pagamento (Pago/Pendente) de cada mês de forma individual.
+                  </span>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-amber-200/80 dark:border-amber-900/50 flex items-center justify-between text-xs">
+                <label className="text-[11px] font-semibold text-amber-950 dark:text-amber-200">
+                  Lançar nos próximos:
+                </label>
+                <select
+                  value={fixedRepeatMonths}
+                  onChange={(e) => setFixedRepeatMonths(Number(e.target.value))}
+                  className="px-2.5 py-1 text-xs bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded-lg text-slate-800 dark:text-slate-200 font-semibold focus:outline-none"
+                >
+                  <option value={12}>12 meses (1 ano)</option>
+                  <option value={24}>24 meses (2 anos) - Recomendado</option>
+                  <option value={36}>36 meses (3 anos)</option>
+                </select>
+              </div>
+
+              {editingTransaction && (
+                <label className="flex items-start gap-2 pt-2 border-t border-amber-200/80 dark:border-amber-900/50 text-amber-950 dark:text-amber-200 text-xs font-medium cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={updateAllInGroup}
+                    onChange={(e) => setUpdateAllInGroup(e.target.checked)}
+                    className="rounded border-amber-300 dark:border-amber-700 text-amber-600 focus:ring-amber-500 w-4 h-4 mt-0.5"
+                  />
+                  <span>
+                    Aplicar alterações a <strong>todos os meses</strong> desta dívida fixa (atualiza valor e descrição)
+                  </span>
+                </label>
+              )}
+            </div>
+          )}
+
+          {/* GASTOS VARIÁVEIS: Opção de pagar no cartão de crédito */}
+          {isVariableExpense && (
+            <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl space-y-2">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Forma de Pagamento deste Gasto Variável
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVariablePaymentMethod('other');
+                    setEnableInstallments(false);
+                    setTotalInstallments(1);
+                  }}
+                  className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                    variablePaymentMethod === 'other'
+                      ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 shadow-xs ring-1 ring-emerald-500'
+                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <span>⚡ PIX / Dinheiro / Débito</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVariablePaymentMethod('credit_card');
+                    setEnableInstallments(true);
+                  }}
+                  className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                    variablePaymentMethod === 'credit_card'
+                      ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 shadow-xs ring-1 ring-purple-500'
+                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <CardIcon className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                  <span>💳 Pagar no Cartão de Crédito</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Description (subcategoria livre removed per user request) */}
           <div>
@@ -541,7 +663,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
             <div className="space-y-3 p-3.5 bg-purple-50/60 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/40 rounded-xl">
               <div>
                 <label className="block text-xs font-semibold text-purple-900 dark:text-purple-200 mb-1">
-                  Qual cartão será parcelada a dívida?
+                  Qual cartão será utilizado / parcelado?
                 </label>
                 {creditCards.length > 0 ? (
                   <select
@@ -750,6 +872,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                     ? 'Salvar'
                     : isCardExpense && totalInstallments > 1
                     ? `Gerar ${totalInstallments} Parcelas`
+                    : isFixedDebt
+                    ? `Lançar em Todos os Meses (${fixedRepeatMonths}x)`
                     : 'Adicionar'}
                 </span>
               </button>

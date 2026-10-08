@@ -1,7 +1,8 @@
 import React from 'react';
-import { ArrowUpRight, ArrowDownRight, Wallet } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Wallet, Eye, EyeOff } from 'lucide-react';
 import { MonthSummary } from '../types/finance';
 import { formatCurrency } from '../utils/formatters';
+import { usePrivacy } from '../context/PrivacyContext';
 
 interface QuickStatsHeroProps {
   summary: MonthSummary;
@@ -12,11 +13,41 @@ interface QuickStatsHeroProps {
 export const QuickStatsHero: React.FC<QuickStatsHeroProps> = ({
   summary,
 }) => {
+  const { hideValues, toggleHideValues } = usePrivacy();
   const isActualPositive = summary.actualBalance >= 0;
   const isProjectedPositive = summary.netBalance >= 0;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4">
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+          Resumo Financeiro
+        </span>
+        <button
+          onClick={toggleHideValues}
+          type="button"
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-xl border transition-all ${
+            hideValues
+              ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-300 shadow-2xs'
+              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+          title={hideValues ? 'Mostrar valores' : 'Esconder valores'}
+        >
+          {hideValues ? (
+            <>
+              <EyeOff className="w-3.5 h-3.5 text-amber-500" />
+              <span>Valores ocultos</span>
+            </>
+          ) : (
+            <>
+              <Eye className="w-3.5 h-3.5 text-slate-400" />
+              <span>Esconder valores</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4">
       {/* 1. Entradas */}
       <div className="bg-white dark:bg-[#121927] rounded-2xl border border-slate-200/90 dark:border-slate-800/90 p-5 shadow-xs transition-colors">
         <div className="flex items-center justify-between">
@@ -118,5 +149,6 @@ export const QuickStatsHero: React.FC<QuickStatsHeroProps> = ({
         </div>
       </div>
     </div>
+  </div>
   );
 };

@@ -1,6 +1,25 @@
 import { CategoryId, CategoryMeta, PaymentMethod } from '../types/finance';
 
-export const formatCurrency = (value: number): string => {
+let _hideValuesGlobal = false;
+try {
+  _hideValuesGlobal = localStorage.getItem('finanplan_hide_values') === 'true';
+} catch {
+  // localStorage might be unavailable or restricted
+}
+
+export const getHideValuesGlobal = (): boolean => _hideValuesGlobal;
+export const setHideValuesGlobal = (val: boolean): void => {
+  _hideValuesGlobal = val;
+  try {
+    localStorage.setItem('finanplan_hide_values', val ? 'true' : 'false');
+  } catch {}
+};
+
+export const formatCurrency = (value: number, hideOverride?: boolean): string => {
+  const shouldHide = hideOverride !== undefined ? hideOverride : _hideValuesGlobal;
+  if (shouldHide) {
+    return 'R$ •••••';
+  }
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',

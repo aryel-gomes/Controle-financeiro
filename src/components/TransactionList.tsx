@@ -11,6 +11,8 @@ import {
   MoreHorizontal,
   Check,
   RefreshCw,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { Transaction } from '../types/finance';
 import {
@@ -18,6 +20,7 @@ import {
   formatCurrency,
   formatDateBR,
 } from '../utils/formatters';
+import { usePrivacy } from '../context/PrivacyContext';
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -25,6 +28,7 @@ interface TransactionListProps {
   onEditTransaction: (tx: Transaction) => void;
   onDeleteTransaction: (id: string, deleteAllInGroup?: boolean) => void;
   onTogglePaid: (id: string) => void;
+  onReplicateFixedDebt?: (id: string, count?: number) => void;
   initialCategoryFilter?: string | null;
 }
 
@@ -34,6 +38,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   onEditTransaction,
   onDeleteTransaction,
   onTogglePaid,
+  onReplicateFixedDebt,
   initialCategoryFilter,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -42,6 +47,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   );
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'paid' | 'pending'>('all');
   const [openMenuTxId, setOpenMenuTxId] = useState<string | null>(null);
+  const { hideValues, toggleHideValues } = usePrivacy();
 
   // Close actions menu on click outside
   React.useEffect(() => {
@@ -76,7 +82,13 @@ export const TransactionList: React.FC<TransactionListProps> = ({
       // Category / Type filter
       if (selectedFilter !== 'all') {
         if (selectedFilter === 'income' && tx.type !== 'income') return false;
-        if (selectedFilter === 'credit_card' && tx.category !== 'credit_card') return false;
+        if (
+          selectedFilter === 'credit_card' &&
+          tx.category !== 'credit_card' &&
+          tx.paymentMethod !== 'credit_card'
+        ) {
+          return false;
+        }
         if (selectedFilter === 'fixed_debt' && tx.category !== 'fixed_debt') return false;
         if (selectedFilter === 'general_expenses' && tx.category !== 'general_expenses') return false;
       }
@@ -138,6 +150,17 @@ export const TransactionList: React.FC<TransactionListProps> = ({
             }?`
           )
         ) {
+          onDeleteTransaction(tx.id, false);
+        }
+      }
+    } else if (tx.recurrenceGroupId || tx.isRecurring || tx.category === 'fixed_debt') {
+      const deleteAll = confirm(
+        `Esta é uma dívida fixa ("${tx.description}").\n\nDeseja excluir de TODOS os meses ou apenas deste mês?\n\n• OK: Excluir de TODOS os meses\n• Cancelar: Excluir APENAS deste mês`
+      );
+      if (deleteAll) {
+        onDeleteTransaction(tx.id, true);
+      } else {
+        if (confirm(`Confirmar exclusão de "${tx.description}" APENAS deste mês?`)) {
           onDeleteTransaction(tx.id, false);
         }
       }
@@ -230,37 +253,52 @@ export const TransactionList: React.FC<TransactionListProps> = ({
             </button>
           </div>
 
-          {/* Status selector */}
-          <div className="flex items-center gap-1 p-0.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs">
+          {/* Status selector & Privacy Eye */}
+          <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1 p-0.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs">
+              <button
+                onClick={() => setSelectedStatus('all')}
+                className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                  selectedStatus === 'all'
+                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                Todos
+              </button>
+              <button
+                onClick={() => setSelectedStatus('paid')}
+                className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                  selectedStatus === 'paid'
+                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                Pagos
+              </button>
+              <button
+                onClick={() => setSelectedStatus('pending')}
+                className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                  selectedStatus === 'pending'
+                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                Pendentes
+              </button>
+            </div>
+
             <button
-              onClick={() => setSelectedStatus('all')}
-              className={`px-2.5 py-1 rounded-md font-medium transition-all ${
-                selectedStatus === 'all'
-                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              onClick={toggleHideValues}
+              className={`p-1.5 rounded-lg border text-xs flex items-center justify-center transition-colors ${
+                hideValues
+                  ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-300 shadow-2xs'
+                  : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
+              title={hideValues ? 'Mostrar valores' : 'Esconder valores'}
+              aria-label={hideValues ? 'Mostrar valores' : 'Esconder valores'}
             >
-              Todos
-            </button>
-            <button
-              onClick={() => setSelectedStatus('paid')}
-              className={`px-2.5 py-1 rounded-md font-medium transition-all ${
-                selectedStatus === 'paid'
-                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              Pagos
-            </button>
-            <button
-              onClick={() => setSelectedStatus('pending')}
-              className={`px-2.5 py-1 rounded-md font-medium transition-all ${
-                selectedStatus === 'pending'
-                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              Pendentes
+              {hideValues ? <EyeOff className="w-3.5 h-3.5 text-amber-500" /> : <Eye className="w-3.5 h-3.5" />}
             </button>
           </div>
         </div>
@@ -293,9 +331,12 @@ export const TransactionList: React.FC<TransactionListProps> = ({
           <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800/70">
             {filteredTransactions.map((tx) => {
               const isIncome = tx.type === 'income';
+              const isCardTx = tx.category === 'credit_card' || tx.paymentMethod === 'credit_card';
               const catLabel =
                 tx.category === 'credit_card'
                   ? tx.cardName || 'Cartão de Crédito'
+                  : tx.category === 'general_expenses' && tx.paymentMethod === 'credit_card'
+                  ? `Gastos Variáveis (${tx.cardName || 'Cartão'})`
                   : CATEGORY_DEFINITIONS[tx.category]?.label || tx.category;
 
               return (
@@ -331,10 +372,22 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                             {tx.currentInstallment || 1}/{tx.totalInstallments}x
                           </span>
                         )}
+                        {tx.category === 'fixed_debt' && (
+                          <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/70 border border-amber-200 dark:border-amber-800/60 px-1.5 py-0.5 rounded shrink-0">
+                            🔄 Fixa
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                        <span>{catLabel}</span>
+                        {isCardTx ? (
+                          <span className="flex items-center gap-1 text-purple-700 dark:text-purple-300 font-medium">
+                            <CardIcon className="w-3 h-3" />
+                            <span>{catLabel}</span>
+                          </span>
+                        ) : (
+                          <span>{catLabel}</span>
+                        )}
                         <span>·</span>
                         <span className="font-mono">{formatDateBR(tx.date)}</span>
                         <span>·</span>
@@ -390,7 +443,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                       {openMenuTxId === tx.id && (
                         <div
                           onClick={(e) => e.stopPropagation()}
-                          className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-lg z-30 py-1 text-xs"
+                          className="absolute right-0 top-full mt-1 w-52 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-lg z-30 py-1 text-xs"
                         >
                           <button
                             onClick={() => {
@@ -421,6 +474,24 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                             <Edit2 className="w-3.5 h-3.5 text-slate-400" />
                             <span>Editar lançamento</span>
                           </button>
+                          {tx.category === 'fixed_debt' && onReplicateFixedDebt && (
+                            <button
+                              onClick={() => {
+                                if (
+                                  confirm(
+                                    `Deseja replicar esta dívida fixa ("${tx.description}") para todos os próximos 24 meses?`
+                                  )
+                                ) {
+                                  onReplicateFixedDebt(tx.id, 24);
+                                }
+                                setOpenMenuTxId(null);
+                              }}
+                              className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800 text-amber-600 dark:text-amber-400"
+                            >
+                              <RefreshCw className="w-3.5 h-3.5 shrink-0" />
+                              <span>Replicar em todos os meses</span>
+                            </button>
+                          )}
                           <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
                           <button
                             onClick={() => {
@@ -472,9 +543,12 @@ export const TransactionList: React.FC<TransactionListProps> = ({
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                 {filteredTransactions.map((tx) => {
                   const isIncome = tx.type === 'income';
+                  const isCardTx = tx.category === 'credit_card' || tx.paymentMethod === 'credit_card';
                   const catLabel =
                     tx.category === 'credit_card'
                       ? tx.cardName || 'Cartão de Crédito'
+                      : tx.category === 'general_expenses' && tx.paymentMethod === 'credit_card'
+                      ? `Gastos Variáveis (${tx.cardName || 'Cartão'})`
                       : CATEGORY_DEFINITIONS[tx.category]?.label || tx.category;
 
                   return (
@@ -510,11 +584,16 @@ export const TransactionList: React.FC<TransactionListProps> = ({
 
                       {/* Description */}
                       <td className="py-3 px-4">
-                        <div className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <div className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
                           <span>{tx.description}</span>
                           {tx.totalInstallments && tx.totalInstallments > 1 && (
                             <span className="text-[10px] font-mono text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800/60 px-1.5 py-0.5 rounded">
                               {tx.currentInstallment || 1}/{tx.totalInstallments}x
+                            </span>
+                          )}
+                          {tx.category === 'fixed_debt' && (
+                            <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/60 px-1.5 py-0.5 rounded flex items-center gap-1 shrink-0">
+                              🔄 Fixa
                             </span>
                           )}
                         </div>
@@ -522,9 +601,9 @@ export const TransactionList: React.FC<TransactionListProps> = ({
 
                       {/* Category / Card */}
                       <td className="py-3 px-4 text-slate-600 dark:text-slate-300">
-                        {tx.category === 'credit_card' ? (
+                        {isCardTx ? (
                           <div className="flex items-center gap-1.5 text-purple-700 dark:text-purple-300">
-                            <CardIcon className="w-3.5 h-3.5" />
+                            <CardIcon className="w-3.5 h-3.5 shrink-0" />
                             <span>{catLabel}</span>
                           </div>
                         ) : (
@@ -600,6 +679,24 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                                 <Edit2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                                 <span>Editar dados</span>
                               </button>
+                              {tx.category === 'fixed_debt' && onReplicateFixedDebt && (
+                                <button
+                                  onClick={() => {
+                                    if (
+                                      confirm(
+                                        `Deseja replicar esta dívida fixa ("${tx.description}") para todos os próximos 24 meses?`
+                                      )
+                                    ) {
+                                      onReplicateFixedDebt(tx.id, 24);
+                                    }
+                                    setOpenMenuTxId(null);
+                                  }}
+                                  className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800 text-amber-600 dark:text-amber-400 transition-colors"
+                                >
+                                  <RefreshCw className="w-3.5 h-3.5 shrink-0" />
+                                  <span>Replicar em todos os meses</span>
+                                </button>
+                              )}
                               <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
                               <button
                                 onClick={() => {

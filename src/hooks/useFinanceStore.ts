@@ -636,15 +636,22 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
           });
         }
       }
-      // 2. Recurring Monthly Expense / Income (e.g. fixed debt for 6 or 12 months)
-      else if (options?.repeatMonthsCount && options.repeatMonthsCount > 1) {
+      // 2. Fixed Debt or Recurring Monthly Expense (automatically repeats in all months, default 24 months)
+      else if (
+        (newTx.category === 'fixed_debt' && (!newTx.totalInstallments || newTx.totalInstallments <= 1)) ||
+        (options?.repeatMonthsCount && options.repeatMonthsCount > 1)
+      ) {
+        const repeatCount =
+          options?.repeatMonthsCount && options.repeatMonthsCount > 1
+            ? options.repeatMonthsCount
+            : 24;
         const recurrenceGroupId =
           newTx.recurrenceGroupId ||
-          `group-rec-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+          `group-fix-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
-        for (let i = 0; i < options.repeatMonthsCount; i++) {
+        for (let i = 0; i < repeatCount; i++) {
           const targetDate = addMonthsToDateString(newTx.date, i);
-          const id = `tx-${Date.now()}-rec${i}-${Math.random().toString(36).substring(2, 6)}`;
+          const id = `tx-${Date.now()}-fix${i}-${Math.random().toString(36).substring(2, 6)}`;
 
           createdList.push({
             ...newTx,
@@ -847,6 +854,175 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
     [transactions, updateTransaction]
   );
 
+  const updateRecurrenceSeries = useCallback(
+    async (
+      id: string,
+      updatedData: Partial<Transaction>,
+      options?: { updateAllInGroup?: boolean; repeatMonthsCount?: number }
+    ) => {
+      const target = transactions.find((t) => t.id === id);
+      if (!target) {
+        return updateTransaction(id, updatedData);
+      }
+
+      if (options?.updateAllInGroup === false) {
+        return updateTransaction(id, updatedData);
+      }
+
+      const groupId = target.recurrenceGroupId;
+      let series = transactions.filter((t) => {
+        if (groupId && t.recurrenceGroupId) {
+          return t.recurrenceGroupId === groupId;
+        }
+        return (
+          t.type === 'expense' &&
+          t.category === target.category &&
+          t.description === target.description
+        );
+      });
+
+      const effectiveGroupId =
+        groupId || `group-fix-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const newAmount = updatedData.amount !== undefined ? updatedData.amount : target.amount;
+      const newDescription =
+        updatedData.description !== undefined ? updatedData.description : target.description;
+
+      const batch = writeBatch(db);
+      const updatedItems: Transaction[] = [];
+
+      // If series only has 1 transaction (was entered before or without recurrence), replicate it across future months
+      if (series.length <= 1) {
+        const repeatCount = options?.repeatMonthsCount || 24;
+        const baseDate = updatedData.date || target.date;
+        const nowIso = new Date().toISOString();
+
+        const firstItem: Transaction = {
+          ...target,
+          ...updatedData,
+          amount: newAmount,
+          description: newDescription,
+          recurrenceGroupId: effectiveGroupId,
+          isRecurring: true,
+        };
+        updatedItems.push(firstItem);
+        batch.set(doc(db, 'transactions', target.id), sanitizeForFirestore(firstItem));
+
+        for (let i = 1; i < repeatCount; i++) {
+          const instDate = addMonthsToDateString(baseDate, i);
+          const newId = `tx-${Date.now()}-fix${i}-${Math.random().toString(36).substring(2, 6)}`;
+          const newItem: Transaction = {
+            ...firstItem,
+            id: newId,
+            date: instDate,
+            isPaid: false,
+            createdAt: nowIso,
+          };
+          updatedItems.push(newItem);
+          batch.set(doc(db, 'transactions', newId), sanitizeForFirestore(newItem));
+        }
+      } else {
+        series.forEach((existingTx) => {
+          const updatedItem: Transaction = {
+            ...existingTx,
+            description: newDescription,
+            amount: newAmount,
+            category: updatedData.category || existingTx.category,
+            type: updatedData.type || existingTx.type,
+            paymentMethod: updatedData.paymentMethod || existingTx.paymentMethod,
+            recurrenceGroupId: effectiveGroupId,
+            isRecurring: true,
+            notes: updatedData.notes !== undefined ? updatedData.notes : existingTx.notes,
+          };
+          updatedItems.push(updatedItem);
+          batch.set(doc(db, 'transactions', existingTx.id), sanitizeForFirestore(updatedItem));
+        });
+      }
+
+      const updatedMap = new Map(updatedItems.map((t) => [t.id, t]));
+      setTransactions((prev) => {
+        const remaining = prev.map((t) => (updatedMap.has(t.id) ? updatedMap.get(t.id)! : t));
+        const newOnes = updatedItems.filter((t) => !prev.some((p) => p.id === t.id));
+        const combined = [...newOnes, ...remaining];
+        combined.sort((a, b) => b.date.localeCompare(a.date));
+        return combined;
+      });
+
+      try {
+        await batch.commit();
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, 'transactions');
+      }
+    },
+    [transactions, updateTransaction]
+  );
+
+  const replicateFixedDebtAcrossMonths = useCallback(
+    async (txId: string, repeatMonthsCount: number = 24) => {
+      const target = transactions.find((t) => t.id === txId);
+      if (!target) return;
+
+      const recurrenceGroupId =
+        target.recurrenceGroupId ||
+        `group-fix-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const nowIso = new Date().toISOString();
+
+      const batch = writeBatch(db);
+      const newItems: Transaction[] = [];
+
+      // Update source
+      const updatedSource: Transaction = {
+        ...target,
+        recurrenceGroupId,
+        isRecurring: true,
+      };
+      newItems.push(updatedSource);
+      batch.set(doc(db, 'transactions', target.id), sanitizeForFirestore(updatedSource));
+
+      // Generate remaining months
+      for (let i = 1; i < repeatMonthsCount; i++) {
+        const nextDate = addMonthsToDateString(target.date, i);
+        const nextMonthKey = nextDate.slice(0, 7);
+        const alreadyExists = transactions.some(
+          (t) =>
+            t.date.startsWith(nextMonthKey) &&
+            ((t.recurrenceGroupId && t.recurrenceGroupId === recurrenceGroupId) ||
+              (t.category === target.category && t.description.toLowerCase() === target.description.toLowerCase()))
+        );
+
+        if (!alreadyExists) {
+          const newId = `tx-${Date.now()}-rep${i}-${Math.random().toString(36).substring(2, 6)}`;
+          const newItem: Transaction = {
+            ...target,
+            id: newId,
+            date: nextDate,
+            recurrenceGroupId,
+            isRecurring: true,
+            isPaid: false,
+            createdAt: nowIso,
+          };
+          newItems.push(newItem);
+          batch.set(doc(db, 'transactions', newId), sanitizeForFirestore(newItem));
+        }
+      }
+
+      const newMap = new Map(newItems.map((t) => [t.id, t]));
+      setTransactions((prev) => {
+        const updated = prev.map((t) => (newMap.has(t.id) ? newMap.get(t.id)! : t));
+        const added = newItems.filter((t) => !prev.some((p) => p.id === t.id));
+        const combined = [...added, ...updated];
+        combined.sort((a, b) => b.date.localeCompare(a.date));
+        return combined;
+      });
+
+      try {
+        await batch.commit();
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, 'transactions');
+      }
+    },
+    [transactions]
+  );
+
   const deleteTransaction = useCallback(
     async (id: string, deleteAllInGroup: boolean = false) => {
       let idsToDelete: string[] = [id];
@@ -861,6 +1037,14 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
           } else if (target.recurrenceGroupId) {
             idsToDelete = transactions
               .filter((item) => item.recurrenceGroupId === target.recurrenceGroupId)
+              .map((item) => item.id);
+          } else if (target.category === 'fixed_debt') {
+            idsToDelete = transactions
+              .filter(
+                (item) =>
+                  item.category === 'fixed_debt' &&
+                  item.description.trim().toLowerCase() === target.description.trim().toLowerCase()
+              )
               .map((item) => item.id);
           } else if (target.totalInstallments && target.totalInstallments > 1) {
             idsToDelete = transactions
@@ -1521,6 +1705,8 @@ export function useFinanceStore(onRequireAdmin?: () => void) {
     addTransaction,
     updateTransaction,
     updateInstallmentSeries,
+    updateRecurrenceSeries,
+    replicateFixedDebtAcrossMonths,
     deleteTransaction,
     toggleTransactionPaid,
     setCardInvoicePaid,
